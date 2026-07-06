@@ -156,10 +156,10 @@ export class Renderer {
     const c = document.createElement('canvas');
     c.width = 2048; c.height = 2048;
     const g = c.getContext('2d');
-    g.fillStyle = '#8a8065';
+    g.fillStyle = '#817757';
     g.fillRect(0, 0, 2048, 2048);
 
-    const tones = ['#7d7355', '#96906f', '#6f6a52', '#8f8468', '#837a5e'];
+    const tones = ['#75694c', '#8c855f', '#665f45', '#877c58', '#7b7154'];
     for (let i = 0; i < 70; i++) {
       g.fillStyle = tones[i % tones.length];
       g.globalAlpha = 0.05 + Math.random() * 0.06;
@@ -205,8 +205,8 @@ export class Renderer {
     g.stroke();
 
     // darker apron right around the pad
-    g.fillStyle = 'rgba(90,86,74,0.55)';
-    g.fillRect(1004, 1004, 40, 40);
+    g.fillStyle = 'rgba(70,66,56,0.45)';
+    g.fillRect(1014, 1014, 20, 20);
 
     const tex = new THREE.CanvasTexture(c);
     tex.anisotropy = 4;
@@ -280,13 +280,15 @@ export class Renderer {
     for (let i = 0; i < 26; i++) {
       const a = (i / 26) * Math.PI * 2 + Math.random() * 0.2;
       const r = 1350 + Math.random() * 350;
-      const h = 90 + Math.random() * 150;
+      const h = 40 + Math.random() * 70;
       const m = new THREE.Mesh(
         new THREE.ConeGeometry(120 + Math.random() * 150, h, 5 + Math.floor(Math.random() * 3)),
         mountainMat
       );
       m.position.set(Math.cos(a) * r, h / 2 - 12, Math.sin(a) * r);
       m.rotation.y = Math.random() * Math.PI;
+      // stretch them around so they read as ridges, not pyramids
+      m.scale.set(1 + Math.random() * 1.6, 1, 1 + Math.random() * 0.7);
       scenery.add(m);
     }
 
@@ -894,9 +896,12 @@ export class Renderer {
       this.chuteMesh.scale.setScalar(s);
     }
 
-    // chase camera: sits behind and slightly above, pulls back with speed
+    // chase camera: sits behind and slightly above, pulls back with
+    // speed and climbs higher as altitude grows so the ground visibly
+    // falls away below the rocket
     const back = 8 + Math.min(Math.abs(flight.vel) * 0.03, 6);
-    const goal = new THREE.Vector3(back * 0.8, y + 2.5, back);
+    const rise = 2.5 + Math.min(flight.alt * 0.012, 10);
+    const goal = new THREE.Vector3(back * 0.8, y + rise, back);
     this.camera.position.lerp(goal, 1 - Math.pow(0.001, dt));
     this.camTarget.lerp(new THREE.Vector3(0, y + this.rocketHeight * 0.4, 0), 1 - Math.pow(0.0005, dt));
     this.camera.lookAt(this.camTarget);
