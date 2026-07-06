@@ -153,6 +153,33 @@ export const audio = {
     }, 600);
   },
 
+  // dull valve-shut thunk for manual engine cutoff
+  cutoff() {
+    const c = ensureCtx();
+    const t = c.currentTime;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.frequency.setValueAtTime(110, t);
+    o.frequency.exponentialRampToValueAtTime(42, t + 0.22);
+    g.gain.setValueAtTime(0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    o.connect(g).connect(master);
+    o.start(t);
+    o.stop(t + 0.3);
+
+    const src = c.createBufferSource();
+    src.buffer = noiseBuffer(0.2);
+    const f = c.createBiquadFilter();
+    f.type = 'highpass';
+    f.frequency.value = 2500;
+    const ng = c.createGain();
+    ng.gain.setValueAtTime(0.08, t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    src.connect(f).connect(ng).connect(master);
+    src.start(t);
+    src.stop(t + 0.2);
+  },
+
   // sharp band-passed pop for booster separation
   separation() {
     const c = ensureCtx();

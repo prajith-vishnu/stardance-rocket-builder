@@ -108,7 +108,9 @@ function goBuild() {
 }
 
 function goLaunch() {
-  if (validateDesign(design)) return;
+  if (state === 'launch' || validateDesign(design)) return;
+  // drop focus so spacebar goes to engine cutoff, not the button
+  document.activeElement?.blur?.();
   state = 'launch';
   flight = new Flight(design);
   renderer.buildRocket(design);
@@ -186,6 +188,17 @@ document.getElementById('btn-launch').addEventListener('click', () => { audio.cl
 document.getElementById('btn-clear').addEventListener('click', () => { audio.click(); clearDesign(); });
 document.getElementById('btn-title').addEventListener('click', () => { audio.click(); goTitle(); });
 document.getElementById('btn-again').addEventListener('click', () => { audio.click(); goBuild(); });
+
+// spacebar shuts the main engine down mid-flight
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space') return;
+  if (state !== 'launch' || !flight || flight.done) return;
+  e.preventDefault();
+  if (flight.cutEngine()) {
+    audio.cutoff();
+    ui.flashEvent('Engine cutoff');
+  }
+});
 
 const muteBtn = document.getElementById('btn-mute');
 function refreshMuteLabel() {

@@ -106,11 +106,20 @@ export class Flight {
     this.tumbling = false;
 
     this.chuteDeployed = false;
+    this.engineCut = false;
     this.maxAlt = 0;
     this.time = 0;
     this.done = false;
     this.events = []; // renderer/audio consume these each step
     this.result = null;
+  }
+
+  // player can shut the main engine down early with the spacebar,
+  // which saves fuel for the efficiency mission
+  cutEngine() {
+    if (this.done || this.engineCut || this.fuel <= 0 || !this.design.engine) return false;
+    this.engineCut = true;
+    return true;
   }
 
   // 0..1, used for engine audio and particle intensity
@@ -121,7 +130,7 @@ export class Flight {
 
   currentThrust() {
     let t = 0;
-    if (this.fuel > 0 && this.design.engine) t += PARTS[this.design.engine].thrust;
+    if (this.fuel > 0 && this.design.engine && !this.engineCut) t += PARTS[this.design.engine].thrust;
     if (this.boostersAttached && this.boosterFuel > 0) t += PARTS['booster-pair'].thrust;
     return t;
   }
@@ -139,7 +148,7 @@ export class Flight {
     this.events.length = 0;
 
     // burn fuel
-    if (this.fuel > 0 && this.design.engine) {
+    if (this.fuel > 0 && this.design.engine && !this.engineCut) {
       this.fuel = Math.max(0, this.fuel - PARTS[this.design.engine].burn * dt);
       if (this.fuel === 0) this.events.push('burnout');
     }
@@ -224,15 +233,17 @@ export class Flight {
 
 export function scoreFlight(mission, result) {
   let score = 0;
+  // cutting the engine on the pad should not count as a safe landing
+  const actuallyFlew = result.maxAlt >= 50;
   if (mission === 'altitude') {
     score = Math.round(result.maxAlt / 2);
   } else if (mission === 'landing') {
     score = Math.round(result.maxAlt / 10);
-    if (result.safe) score += 500;
+    if (result.safe && actuallyFlew) score += 500;
   } else if (mission === 'efficiency') {
     score = Math.round((result.maxAlt / result.fuelUsed) * 40);
   }
-  if (result.safe) score += 50; // small bonus on any mission
+  if (result.safe && actuallyFlew) score += 50; // small bonus on any mission
   return Math.max(0, score);
 }
 
