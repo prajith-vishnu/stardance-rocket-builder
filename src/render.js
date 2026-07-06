@@ -446,6 +446,52 @@ export class Renderer {
       this.clouds.push(s);
       this.scene.add(s);
     }
+
+    // faint high cirrus, a second layer way up for the climb to pass
+    for (let i = 0; i < 8; i++) {
+      const mat = new THREE.SpriteMaterial({
+        map: tex,
+        transparent: true,
+        depthWrite: false,
+        opacity: 0.08 + Math.random() * 0.08,
+      });
+      const s = new THREE.Sprite(mat);
+      const a = Math.random() * Math.PI * 2;
+      const r = 80 + Math.random() * 450;
+      s.position.set(Math.cos(a) * r, 190 + Math.random() * 130, Math.sin(a) * r);
+      const w = 70 + Math.random() * 60;
+      s.scale.set(w, w * 0.16, 1);
+      s.userData.drift = 0.15 + Math.random() * 0.3;
+      s.userData.baseOpacity = mat.opacity;
+      this.clouds.push(s);
+      this.scene.add(s);
+    }
+
+    // daytime moon, gets brighter as the sky darkens
+    const mc = document.createElement('canvas');
+    mc.width = 128; mc.height = 128;
+    const mg = mc.getContext('2d');
+    const moonGrad = mg.createRadialGradient(64, 64, 20, 64, 64, 62);
+    moonGrad.addColorStop(0, 'rgba(240,242,248,1)');
+    moonGrad.addColorStop(0.8, 'rgba(230,234,242,0.9)');
+    moonGrad.addColorStop(1, 'rgba(230,234,242,0)');
+    mg.fillStyle = moonGrad;
+    mg.fillRect(0, 0, 128, 128);
+    // a few dark maria blotches
+    mg.fillStyle = 'rgba(160,168,184,0.5)';
+    mg.beginPath(); mg.arc(48, 52, 14, 0, Math.PI * 2); mg.fill();
+    mg.beginPath(); mg.arc(78, 74, 10, 0, Math.PI * 2); mg.fill();
+    mg.beginPath(); mg.arc(66, 38, 7, 0, Math.PI * 2); mg.fill();
+    this.moonMat = new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(mc),
+      transparent: true,
+      depthWrite: false,
+      fog: false,
+      opacity: 0.35,
+    });
+    this.moon = new THREE.Sprite(this.moonMat);
+    this.moon.scale.set(110, 110, 1);
+    this.scene.add(this.moon);
   }
 
   setupParticles() {
@@ -773,9 +819,16 @@ export class Renderer {
     this.updateParticles(dt);
     this.updateDetachedBoosters(dt);
 
-    // keep sky dome and stars centered on the camera so they never clip
+    // keep sky dome, stars, and moon anchored to the camera so they
+    // read as infinitely far away
     this.skyDome.position.copy(this.camera.position);
     this.stars.position.copy(this.camera.position);
+    this.moon.position.set(
+      this.camera.position.x - 620,
+      this.camera.position.y + 780,
+      this.camera.position.z - 980
+    );
+    this.moonMat.opacity = 0.35 + space * 0.6;
 
     this.renderer.render(this.scene, this.camera);
   }
