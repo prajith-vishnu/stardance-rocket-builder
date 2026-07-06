@@ -65,6 +65,7 @@ export class Renderer {
     this.setupLights();
     this.setupSky();
     this.setupGround();
+    this.setupClouds();
     this.setupParticles();
 
     this.controls = new OrbitControls(this.camera, canvas);
@@ -176,6 +177,46 @@ export class Renderer {
     this.pad = pad;
     this.scene.add(pad);
     this.padTop = 0.3;
+  }
+
+  setupClouds() {
+    // soft billboard clouds between roughly 180m and 500m, so the rocket
+    // punches through the layer on the way up
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 128;
+    const g = c.getContext('2d');
+    const blob = (x, y, r) => {
+      const grad = g.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0, 'rgba(255,255,255,0.85)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 128, 128);
+    };
+    blob(64, 70, 52);
+    blob(40, 62, 34);
+    blob(90, 60, 36);
+    blob(64, 52, 30);
+    const tex = new THREE.CanvasTexture(c);
+
+    this.clouds = [];
+    for (let i = 0; i < 14; i++) {
+      const mat = new THREE.SpriteMaterial({
+        map: tex,
+        transparent: true,
+        depthWrite: false,
+        opacity: 0.3 + Math.random() * 0.25,
+      });
+      const s = new THREE.Sprite(mat);
+      const a = Math.random() * Math.PI * 2;
+      const r = 20 + Math.random() * 75;
+      s.position.set(Math.cos(a) * r, 45 + Math.random() * 85, Math.sin(a) * r);
+      const w = 24 + Math.random() * 26;
+      s.scale.set(w, w * 0.32, 1);
+      s.userData.drift = 0.4 + Math.random() * 1.1;
+      s.userData.baseOpacity = mat.opacity;
+      this.clouds.push(s);
+      this.scene.add(s);
+    }
   }
 
   setupParticles() {
@@ -475,6 +516,13 @@ export class Renderer {
     this.starMat.opacity = THREE.MathUtils.smoothstep(space, 0.35, 0.9);
     this.hemi.intensity = 0.7 * (1 - space * 0.8);
     this.sun.intensity = 2.2 - space * 0.6;
+
+    // clouds drift sideways and thin out once the air is basically gone
+    for (const cl of this.clouds) {
+      cl.position.x += cl.userData.drift * dt;
+      if (cl.position.x > 110) cl.position.x = -110;
+      cl.material.opacity = cl.userData.baseOpacity * (1 - space);
+    }
 
     if (this.mode === 'title') {
       this.titleAngle += dt * 0.12;
