@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stardance Rocket Builder</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <!-- title screen -->
+  <div id="title-screen" class="screen">
+    <div class="title-block">
+      <h1>Stardance<br>Rocket Builder</h1>
+      <p class="tagline">Build it. Launch it. Try not to crash it.</p>
+      <button id="btn-start" class="btn btn-big">Start Building</button>
+      <button id="btn-unlocks" class="btn">Parts Catalog</button>
+      <p class="title-best" id="title-best"></p>
+    </div>
+  </div>
+
+  <!-- build mode -->
+  <div id="build-ui" class="screen hidden">
+    <div id="palette" class="panel">
+      <h2>Parts</h2>
+      <div id="palette-list"></div>
+    </div>
+
+    <div id="stats" class="panel">
+      <h2>Rocket Stats</h2>
+      <table>
+        <tr><td>Mass</td><td id="stat-mass">-</td></tr>
+        <tr><td>Thrust</td><td id="stat-thrust">-</td></tr>
+        <tr><td>TWR</td><td id="stat-twr">-</td></tr>
+        <tr><td>Burn time</td><td id="stat-burn">-</td></tr>
+        <tr><td>Stability</td><td id="stat-stability">-</td></tr>
+      </table>
+      <h2 class="spaced">Mission</h2>
+      <div id="mission-picker"></div>
+      <div id="build-warning"></div>
+      <button id="btn-launch" class="btn btn-big">Launch</button>
+      <button id="btn-clear" class="btn">Clear Rocket</button>
+      <button id="btn-title" class="btn">Back to Title</button>
+    </div>
+
+    <div id="stack-panel" class="panel">
+      <h2>Stack</h2>
+      <p class="hint">Click a part to remove it</p>
+      <div id="stack-list"></div>
+    </div>
+  </div>
+
+  <!-- launch mode -->
+  <div id="launch-ui" class="screen hidden">
+    <div id="flight-readout" class="panel">
+      <table>
+        <tr><td>Altitude</td><td id="fl-alt">0 m</td></tr>
+        <tr><td>Speed</td><td id="fl-vel">0 m/s</td></tr>
+        <tr><td>Fuel</td><td id="fl-fuel">100%</td></tr>
+      </table>
+      <div id="fuel-bar"><div id="fuel-bar-fill"></div></div>
+    </div>
+    <div id="flight-event"></div>
+  </div>
+
+  <!-- results -->
+  <div id="results-screen" class="screen hidden">
+    <div class="title-block">
+      <h1 id="results-heading">Flight Over</h1>
+      <table class="results-table">
+        <tr><td>Max altitude</td><td id="res-alt">-</td></tr>
+        <tr><td>Fuel used</td><td id="res-fuel">-</td></tr>
+        <tr><td>Landing</td><td id="res-landing">-</td></tr>
+        <tr><td>Mission</td><td id="res-mission">-</td></tr>
+        <tr class="results-score"><td>Score</td><td id="res-score">-</td></tr>
+      </table>
+      <p id="res-best"></p>
+      <p id="res-points"></p>
+      <button id="btn-again" class="btn btn-big">Back to Build</button>
+    </div>
+  </div>
+
+  <!-- unlocks -->
+  <div id="unlocks-screen" class="screen hidden">
+    <div class="title-block wide">
+      <h1>Parts Catalog</h1>
+      <p id="unlock-points"></p>
+      <div id="unlock-list"></div>
+      <button id="btn-unlocks-back" class="btn btn-big">Back</button>
+    </div>
+  </div>
+
+  <button id="btn-mute" class="btn corner-btn">Sound: On</button>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
