@@ -65,6 +65,7 @@ export class Renderer {
     this.setupLights();
     this.setupSky();
     this.setupGround();
+    this.setupScenery();
     this.setupClouds();
     this.setupParticles();
 
@@ -90,11 +91,12 @@ export class Renderer {
     this.sun.position.set(18, 30, 12);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
-    this.sun.shadow.camera.left = -15;
-    this.sun.shadow.camera.right = 15;
-    this.sun.shadow.camera.top = 20;
-    this.sun.shadow.camera.bottom = -5;
-    this.sun.shadow.camera.far = 80;
+    // wide enough to catch the buildings around the pad too
+    this.sun.shadow.camera.left = -45;
+    this.sun.shadow.camera.right = 45;
+    this.sun.shadow.camera.top = 45;
+    this.sun.shadow.camera.bottom = -45;
+    this.sun.shadow.camera.far = 150;
     this.sun.shadow.bias = -0.0005;
     this.scene.add(this.sun);
     this.scene.add(this.sun.target);
@@ -137,10 +139,99 @@ export class Renderer {
     this.scene.add(this.stars);
   }
 
+  // cheap layered sine noise for the terrain. flat near the pad so the
+  // launch site sits on level ground, hills further out
+  hillHeight(x, z) {
+    const h =
+      Math.sin(x * 0.008) * Math.cos(z * 0.006) * 10 +
+      Math.sin(x * 0.02 + 3) * Math.sin(z * 0.017 + 1) * 5 +
+      Math.sin((x + z) * 0.004) * 12;
+    const d = Math.sqrt(x * x + z * z);
+    return h * THREE.MathUtils.smoothstep(d, 80, 260);
+  }
+
+  makeGroundTexture() {
+    // one big hand-painted map: tonal patches, dirt roads, a dry lake.
+    // landmarks like these are what make the climb feel fast
+    const c = document.createElement('canvas');
+    c.width = 2048; c.height = 2048;
+    const g = c.getContext('2d');
+    g.fillStyle = '#8a8065';
+    g.fillRect(0, 0, 2048, 2048);
+
+    const tones = ['#7d7355', '#96906f', '#6f6a52', '#8f8468', '#837a5e'];
+    for (let i = 0; i < 70; i++) {
+      g.fillStyle = tones[i % tones.length];
+      g.globalAlpha = 0.05 + Math.random() * 0.06;
+      g.beginPath();
+      g.ellipse(
+        Math.random() * 2048, Math.random() * 2048,
+        60 + Math.random() * 260, 40 + Math.random() * 200,
+        Math.random() * Math.PI, 0, Math.PI * 2
+      );
+      g.fill();
+    }
+    g.globalAlpha = 1;
+
+    // speckle
+    g.fillStyle = 'rgba(40,36,28,0.08)';
+    for (let i = 0; i < 3500; i++) {
+      g.fillRect(Math.random() * 2048, Math.random() * 2048, 2, 2);
+    }
+
+    // dry lakebed off to the northeast
+    const lake = g.createRadialGradient(1420, 660, 30, 1420, 660, 230);
+    lake.addColorStop(0, 'rgba(178,168,132,0.9)');
+    lake.addColorStop(1, 'rgba(178,168,132,0)');
+    g.fillStyle = lake;
+    g.beginPath();
+    g.ellipse(1420, 660, 230, 150, 0.4, 0, Math.PI * 2);
+    g.fill();
+
+    // dirt roads out from the launch site
+    g.strokeStyle = 'rgba(66,60,48,0.8)';
+    g.lineWidth = 4;
+    g.beginPath();
+    g.moveTo(1024, 1024);
+    g.quadraticCurveTo(700, 1100, 250, 980);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(1024, 1024);
+    g.quadraticCurveTo(1250, 1350, 1500, 1800);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(1024, 1024);
+    g.quadraticCurveTo(1150, 800, 1380, 690);
+    g.stroke();
+
+    // darker apron right around the pad
+    g.fillStyle = 'rgba(90,86,74,0.55)';
+    g.fillRect(1004, 1004, 40, 40);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.anisotropy = 4;
+    return tex;
+  }
+
   setupGround() {
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x8a7f63, roughness: 1 });
-    this.ground = new THREE.Mesh(new THREE.CircleGeometry(400, 48), groundMat);
-    this.ground.rotation.x = -Math.PI / 2;
+    // haze so the terrain fades into the horizon instead of ending
+    this.fogDay = new THREE.Color(0xbdd0e2);
+    this.fogSpace = new THREE.Color(0x02030a);
+    this.scene.fog = new THREE.Fog(0xbdd0e2, 400, 3200);
+    this.starMat.fog = false;
+
+    const geo = new THREE.PlaneGeometry(4000, 4000, 96, 96);
+    geo.rotateX(-Math.PI / 2);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setY(i, this.hillHeight(pos.getX(i), pos.getZ(i)));
+    }
+    geo.computeVertexNormals();
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: this.makeGroundTexture(),
+      roughness: 1,
+    });
+    this.ground = new THREE.Mesh(geo, groundMat);
     this.ground.receiveShadow = true;
     this.scene.add(this.ground);
 
@@ -516,6 +607,7 @@ export class Renderer {
     this.starMat.opacity = THREE.MathUtils.smoothstep(space, 0.35, 0.9);
     this.hemi.intensity = 0.7 * (1 - space * 0.8);
     this.sun.intensity = 2.2 - space * 0.6;
+    this.scene.fog.color.copy(this.fogDay).lerp(this.fogSpace, space);
 
     // clouds drift sideways and thin out once the air is basically gone
     for (const cl of this.clouds) {
