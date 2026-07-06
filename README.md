@@ -5,6 +5,8 @@ challenge. You assemble a rocket from parts on a launch pad, check the
 stats, and launch it. Points from each flight unlock better parts, and
 your progress is saved in the browser.
 
+Play it here: [stardance-rocket-builder.vercel.app](https://stardance-rocket-builder.vercel.app)
+
 ## Features
 
 - 3D build mode with orbit camera, realistic metal materials, and shadows
