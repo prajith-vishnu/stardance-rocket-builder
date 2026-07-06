@@ -71,53 +71,121 @@ export const CATEGORY_ORDER = ['Nose Cone', 'Fuel Tank', 'Engine', 'Fins', 'Boos
 
 // ---- materials ----
 
-// panel-line texture drawn on a canvas so tanks are not just flat color
-let panelTexture = null;
-function getPanelTexture() {
-  if (panelTexture) return panelTexture;
+// hull texture drawn on a canvas: panel seams, rivets, a roll-pattern
+// stripe pair, an orange band, and grime streaks so it reads as a real
+// flight vehicle instead of a solid color
+let hullMap = null;
+let hullRough = null;
+let plainMap = null;
+
+function drawSeams(g, size, vStep, hStep) {
+  g.strokeStyle = 'rgba(52,58,68,0.5)';
+  g.lineWidth = 2;
+  for (let x = 0; x <= size; x += vStep) {
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, size); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.25)';
+    g.beginPath(); g.moveTo(x + 2, 0); g.lineTo(x + 2, size); g.stroke();
+    g.strokeStyle = 'rgba(52,58,68,0.5)';
+  }
+  for (let y = 0; y <= size; y += hStep) {
+    g.beginPath(); g.moveTo(0, y); g.lineTo(size, y); g.stroke();
+  }
+  // rivets along the vertical seams
+  g.fillStyle = 'rgba(60,64,72,0.55)';
+  for (let x = 0; x <= size; x += vStep) {
+    for (let y = 10; y < size; y += 26) {
+      g.beginPath(); g.arc((x + 7) % size, y, 2, 0, Math.PI * 2); g.fill();
+    }
+  }
+}
+
+function getHullTextures() {
+  if (hullMap) return { map: hullMap, rough: hullRough };
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const g = c.getContext('2d');
+  g.fillStyle = '#d3d6db';
+  g.fillRect(0, 0, 512, 512);
+  // brushed metal streaks running the length of the hull
+  for (let i = 0; i < 900; i++) {
+    const x = Math.random() * 512;
+    g.strokeStyle = 'rgba(' + (Math.random() < 0.5 ? '255,255,255' : '18,22,30') + ',' + (Math.random() * 0.05).toFixed(3) + ')';
+    g.beginPath();
+    g.moveTo(x, 0);
+    g.lineTo(x + (Math.random() - 0.5) * 8, 512);
+    g.stroke();
+  }
+  drawSeams(g, 512, 128, 170);
+  // roll pattern: two black stripes on opposite sides of the hull
+  g.fillStyle = 'rgba(22,24,29,0.92)';
+  g.fillRect(116, 0, 24, 512);
+  g.fillRect(372, 0, 24, 512);
+  // thin international-orange band near the top of each section
+  g.fillStyle = '#c04a2a';
+  g.fillRect(0, 22, 512, 13);
+  // grime streaks bleeding down from the horizontal seams
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * 512;
+    const y = 170 * (1 + Math.floor(Math.random() * 2));
+    const len = 24 + Math.random() * 60;
+    const streak = g.createLinearGradient(0, y, 0, y + len);
+    streak.addColorStop(0, 'rgba(48,44,38,0.16)');
+    streak.addColorStop(1, 'rgba(48,44,38,0)');
+    g.fillStyle = streak;
+    g.fillRect(x, y, 2 + Math.random() * 3, len);
+  }
+  hullMap = new THREE.CanvasTexture(c);
+  hullMap.colorSpace = THREE.SRGBColorSpace;
+
+  // roughness variation: streaky so highlights break up like worn metal
+  const rc = document.createElement('canvas');
+  rc.width = 256; rc.height = 256;
+  const rg = rc.getContext('2d');
+  rg.fillStyle = '#8c8c8c';
+  rg.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 400; i++) {
+    const x = Math.random() * 256;
+    rg.strokeStyle = 'rgba(' + (Math.random() < 0.5 ? '230,230,230' : '90,90,90') + ',' + (0.05 + Math.random() * 0.1).toFixed(3) + ')';
+    rg.beginPath();
+    rg.moveTo(x, 0);
+    rg.lineTo(x + (Math.random() - 0.5) * 20, 256);
+    rg.stroke();
+  }
+  hullRough = new THREE.CanvasTexture(rc);
+  return { map: hullMap, rough: hullRough };
+}
+
+// plain white-painted panels for the boosters
+function getPlainTexture() {
+  if (plainMap) return plainMap;
   const c = document.createElement('canvas');
   c.width = 256; c.height = 256;
   const g = c.getContext('2d');
-  g.fillStyle = '#d8d8dc';
+  g.fillStyle = '#e2e3e6';
   g.fillRect(0, 0, 256, 256);
-  // subtle brushed streaks
-  for (let i = 0; i < 500; i++) {
-    const y = Math.random() * 256;
-    g.strokeStyle = 'rgba(0,0,0,' + (Math.random() * 0.04) + ')';
-    g.beginPath();
-    g.moveTo(0, y);
-    g.lineTo(256, y + (Math.random() - 0.5) * 4);
-    g.stroke();
-  }
-  // vertical panel seams
-  g.strokeStyle = 'rgba(40,45,55,0.55)';
-  g.lineWidth = 2;
-  for (let x = 0; x <= 256; x += 64) {
-    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 256); g.stroke();
-  }
-  // horizontal seams
-  for (let y = 0; y <= 256; y += 128) {
-    g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke();
-  }
-  // rivets along seams
-  g.fillStyle = 'rgba(60,64,72,0.6)';
-  for (let x = 0; x <= 256; x += 64) {
-    for (let y = 8; y < 256; y += 24) {
-      g.beginPath(); g.arc((x + 6) % 256, y, 1.5, 0, Math.PI * 2); g.fill();
-    }
-  }
-  panelTexture = new THREE.CanvasTexture(c);
-  panelTexture.wrapS = THREE.RepeatWrapping;
-  panelTexture.wrapT = THREE.RepeatWrapping;
-  return panelTexture;
+  drawSeams(g, 256, 128, 128);
+  plainMap = new THREE.CanvasTexture(c);
+  plainMap.colorSpace = THREE.SRGBColorSpace;
+  return plainMap;
 }
 
 function tankMaterial() {
+  const t = getHullTextures();
   return new THREE.MeshStandardMaterial({
-    map: getPanelTexture(),
-    color: 0xffffff,
-    metalness: 0.75,
-    roughness: 0.35,
+    map: t.map,
+    roughnessMap: t.rough,
+    bumpMap: t.map,
+    bumpScale: 0.01,
+    metalness: 0.85,
+    roughness: 0.7,
+  });
+}
+
+function boosterMaterial() {
+  return new THREE.MeshStandardMaterial({
+    map: getPlainTexture(),
+    metalness: 0.45,
+    roughness: 0.45,
   });
 }
 
@@ -133,9 +201,22 @@ function darkMetal() {
   });
 }
 
-function nozzleMaterial() {
+function copperPipe() {
   return new THREE.MeshStandardMaterial({
-    color: 0x22242a, metalness: 0.95, roughness: 0.3,
+    color: 0x8a5a3a, metalness: 0.9, roughness: 0.35,
+  });
+}
+
+function nozzleMaterial() {
+  // DoubleSide so the inside of the bell shows, emissive is driven by
+  // the renderer while the engine is firing
+  return new THREE.MeshStandardMaterial({
+    color: 0x24262b,
+    metalness: 0.95,
+    roughness: 0.28,
+    side: THREE.DoubleSide,
+    emissive: new THREE.Color(0xff5a1f),
+    emissiveIntensity: 0,
   });
 }
 
@@ -145,15 +226,45 @@ function nozzleMaterial() {
 
 const R = 0.5; // shared body radius so parts line up
 
+// painted white with a dark anti-glare tip and an orange band, drawn
+// once onto a canvas and wrapped around the lathe
+let noseTex = null;
+function getNoseTexture() {
+  if (noseTex) return noseTex;
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#eae8e2';
+  g.fillRect(0, 0, 128, 256);
+  // faint paint streaks
+  for (let i = 0; i < 120; i++) {
+    g.strokeStyle = 'rgba(120,118,110,' + (Math.random() * 0.05).toFixed(3) + ')';
+    const x = Math.random() * 128;
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 256); g.stroke();
+  }
+  // dark tip (canvas top = tip of the cone)
+  g.fillStyle = '#35383d';
+  g.fillRect(0, 0, 128, 40);
+  // orange band near the base
+  g.fillStyle = '#c04a2a';
+  g.fillRect(0, 225, 128, 13);
+  noseTex = new THREE.CanvasTexture(c);
+  noseTex.colorSpace = THREE.SRGBColorSpace;
+  return noseTex;
+}
+
 function buildNoseStandard() {
   const g = new THREE.Group();
   // lathe profile: rounded cone
   const pts = [];
-  for (let i = 0; i <= 10; i++) {
-    const t = i / 10;
+  for (let i = 0; i <= 16; i++) {
+    const t = i / 16;
     pts.push(new THREE.Vector2(R * Math.cos(t * Math.PI * 0.5), 1.2 * Math.sin(t * Math.PI * 0.5)));
   }
-  const mesh = new THREE.Mesh(new THREE.LatheGeometry(pts, 24), paintedMaterial(0xc94f30));
+  const mat = new THREE.MeshStandardMaterial({
+    map: getNoseTexture(), metalness: 0.25, roughness: 0.4,
+  });
+  const mesh = new THREE.Mesh(new THREE.LatheGeometry(pts, 48), mat);
   g.add(mesh);
   g.userData.height = 1.2;
   return g;
@@ -161,13 +272,16 @@ function buildNoseStandard() {
 
 function buildNoseAero() {
   const g = new THREE.Group();
-  // long ogive with a needle spike
+  // long ogive with a needle spike, bare polished aluminum
   const pts = [];
-  for (let i = 0; i <= 12; i++) {
-    const t = i / 12;
+  for (let i = 0; i <= 16; i++) {
+    const t = i / 16;
     pts.push(new THREE.Vector2(R * (1 - t * t), 1.6 * t));
   }
-  const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 24), paintedMaterial(0xdfe2e6));
+  const body = new THREE.Mesh(
+    new THREE.LatheGeometry(pts, 48),
+    new THREE.MeshStandardMaterial({ color: 0xd9dde2, metalness: 0.75, roughness: 0.3 })
+  );
   const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.5, 8), darkMetal());
   spike.position.y = 1.8;
   g.add(body, spike);
@@ -178,10 +292,10 @@ function buildNoseAero() {
 function buildTank(height) {
   const g = new THREE.Group();
   const mat = tankMaterial();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, height, 24), mat);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, height, 40), mat);
   body.position.y = height / 2;
   // end rings so stacked tanks read as separate sections
-  const ringGeo = new THREE.TorusGeometry(R, 0.035, 8, 24);
+  const ringGeo = new THREE.TorusGeometry(R, 0.035, 10, 48);
   const ringTop = new THREE.Mesh(ringGeo, darkMetal());
   ringTop.rotation.x = Math.PI / 2;
   ringTop.position.y = height - 0.02;
@@ -195,39 +309,60 @@ function buildTank(height) {
 function buildEngine(id) {
   const g = new THREE.Group();
   if (id === 'engine-basic') {
-    // simple bell
-    const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.38, 0.5, 20, 1, true), nozzleMaterial());
+    // simple bell with a gimbal ring and two feed lines
+    const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.38, 0.5, 36, 1, true), nozzleMaterial());
     bell.position.y = 0.25;
-    const mount = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.8, 0.25, 20), darkMetal());
+    bell.userData.isNozzle = true;
+    const gimbal = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.03, 8, 24), darkMetal());
+    gimbal.rotation.x = Math.PI / 2;
+    gimbal.position.y = 0.52;
+    const mount = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.8, 0.25, 32), darkMetal());
     mount.position.y = 0.62;
-    g.add(bell, mount);
+    g.add(bell, gimbal, mount);
+    for (const side of [-1, 1]) {
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.3, 8), copperPipe());
+      pipe.position.set(side * 0.2, 0.44, 0);
+      pipe.rotation.z = side * -0.55;
+      g.add(pipe);
+    }
     g.userData.height = 0.75;
     g.userData.nozzleY = 0.05;
   } else if (id === 'engine-vector') {
-    // longer bell with a gimbal collar
+    // longer bell with a gimbal collar and feed lines around it
     const pts = [];
-    for (let i = 0; i <= 8; i++) {
-      const t = i / 8;
+    for (let i = 0; i <= 12; i++) {
+      const t = i / 12;
       pts.push(new THREE.Vector2(0.16 + 0.3 * t * t, 0.7 * (1 - t)));
     }
-    const bell = new THREE.Mesh(new THREE.LatheGeometry(pts, 24), nozzleMaterial());
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.06, 8, 20), darkMetal());
+    const bell = new THREE.Mesh(new THREE.LatheGeometry(pts, 40), nozzleMaterial());
+    bell.userData.isNozzle = true;
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.06, 10, 28), darkMetal());
     collar.rotation.x = Math.PI / 2;
     collar.position.y = 0.72;
-    const mount = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.75, 0.3, 20), darkMetal());
+    const mount = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.75, 0.3, 32), darkMetal());
     mount.position.y = 0.92;
     g.add(bell, collar, mount);
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + 0.5;
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.42, 8), copperPipe());
+      pipe.position.set(Math.cos(a) * 0.27, 0.62, Math.sin(a) * 0.27);
+      g.add(pipe);
+    }
     g.userData.height = 1.07;
     g.userData.nozzleY = 0.05;
   } else {
     // heavy: cluster of three bells under a wide skirt
-    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.1, 0.4, 24), darkMetal());
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.1, 0.4, 36), darkMetal());
     skirt.position.y = 0.75;
-    g.add(skirt);
+    const manifold = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.035, 8, 32), copperPipe());
+    manifold.rotation.x = Math.PI / 2;
+    manifold.position.y = 0.52;
+    g.add(skirt, manifold);
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI * 2;
-      const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.24, 0.55, 16, 1, true), nozzleMaterial());
+      const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.24, 0.55, 28, 1, true), nozzleMaterial());
       bell.position.set(Math.cos(a) * 0.24, 0.3, Math.sin(a) * 0.24);
+      bell.userData.isNozzle = true;
       g.add(bell);
     }
     g.userData.height = 0.95;
@@ -239,7 +374,8 @@ function buildEngine(id) {
 
 function buildFins(id) {
   const g = new THREE.Group();
-  const mat = paintedMaterial(id === 'fins-swept' ? 0x2c3340 : 0xc94f30);
+  // dark fins on a white body, like most sounding rockets
+  const mat = paintedMaterial(id === 'fins-swept' ? 0x2c3340 : 0x24272c);
   // thin extruded fin profile, four around the body
   const shape = new THREE.Shape();
   if (id === 'fins-swept') {
@@ -269,15 +405,16 @@ function buildFins(id) {
 
 function buildBoosterPair() {
   const g = new THREE.Group();
-  const mat = tankMaterial();
+  const mat = boosterMaterial();
   for (const side of [-1, 1]) {
     const booster = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.6, 16), mat);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.6, 24), mat);
     body.position.y = 0.9;
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.4, 16), paintedMaterial(0xc94f30));
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.4, 24), paintedMaterial(0xb0472a));
     cone.position.y = 1.9;
-    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.16, 0.25, 12, 1, true), nozzleMaterial());
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.16, 0.25, 20, 1, true), nozzleMaterial());
     nozzle.position.y = 0.08;
+    nozzle.userData.isNozzle = true;
     booster.add(body, cone, nozzle);
     booster.position.x = side * (R + 0.24);
     booster.userData.isBooster = true;
