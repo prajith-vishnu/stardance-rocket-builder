@@ -64,6 +64,7 @@ export class Renderer {
 
     this.setupLights();
     this.setupSky();
+    this.setupEnvironment();
     this.setupGround();
     this.setupScenery();
     this.setupClouds();
@@ -82,22 +83,25 @@ export class Renderer {
   }
 
   setupLights() {
-    // hemisphere fill so shadowed sides are not pure black
-    this.hemi = new THREE.HemisphereLight(0xbfd4ea, 0x4a4238, 0.7);
+    // hemisphere fill so shadowed sides are not pure black. kept low
+    // because the environment map adds its own fill light
+    this.hemi = new THREE.HemisphereLight(0xbfd4ea, 0x4a4238, 0.5);
     this.scene.add(this.hemi);
 
     // sun with shadows
-    this.sun = new THREE.DirectionalLight(0xfff2df, 2.2);
+    this.sun = new THREE.DirectionalLight(0xfff2df, 2.0);
     this.sun.position.set(18, 30, 12);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(4096, 4096);
     // wide enough to catch the buildings around the pad too
     this.sun.shadow.camera.left = -45;
     this.sun.shadow.camera.right = 45;
     this.sun.shadow.camera.top = 45;
     this.sun.shadow.camera.bottom = -45;
     this.sun.shadow.camera.far = 150;
-    this.sun.shadow.bias = -0.0005;
+    // normalBias fixes the striping on curved tank walls
+    this.sun.shadow.bias = -0.0002;
+    this.sun.shadow.normalBias = 0.03;
     this.scene.add(this.sun);
     this.scene.add(this.sun.target);
 
@@ -137,6 +141,42 @@ export class Renderer {
     });
     this.stars = new THREE.Points(starGeo, this.starMat);
     this.scene.add(this.stars);
+  }
+
+  setupEnvironment() {
+    // a tiny fake outdoor scene baked into an environment map, so the
+    // metal parts have a sky and ground to reflect. without this
+    // MeshStandardMaterial metals look like gray plastic
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const envScene = new THREE.Scene();
+    const mat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      vertexShader: `
+        varying vec3 vPos;
+        void main() {
+          vPos = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: `
+        varying vec3 vPos;
+        void main() {
+          vec3 d = normalize(vPos);
+          vec3 ground = vec3(0.33, 0.28, 0.20);
+          vec3 horizon = vec3(0.85, 0.83, 0.78);
+          vec3 zenith = vec3(0.30, 0.48, 0.85);
+          vec3 sky = mix(horizon, zenith, pow(max(d.y, 0.0), 0.7));
+          vec3 col = d.y > 0.0 ? sky : mix(horizon, ground, min(1.0, -d.y * 3.0));
+          vec3 sunDir = normalize(vec3(0.45, 0.7, 0.3));
+          col += vec3(1.0, 0.95, 0.85) * pow(max(dot(d, sunDir), 0.0), 250.0) * 6.0;
+          gl_FragColor = vec4(col, 1.0);
+        }`,
+    });
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), mat);
+    envScene.add(ball);
+    this.scene.environment = pmrem.fromScene(envScene, 0.03).texture;
+    ball.geometry.dispose();
+    mat.dispose();
+    pmrem.dispose();
   }
 
   // cheap layered sine noise for the terrain. flat near the pad so the
@@ -265,6 +305,27 @@ export class Renderer {
       arm.castShadow = true;
       pad.add(arm);
     }
+    // soft dark blob under the rocket so it feels planted on the pad
+    const sc = document.createElement('canvas');
+    sc.width = 128; sc.height = 128;
+    const sg = sc.getContext('2d');
+    const blobGrad = sg.createRadialGradient(64, 64, 6, 64, 64, 62);
+    blobGrad.addColorStop(0, 'rgba(0,0,0,0.4)');
+    blobGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    sg.fillStyle = blobGrad;
+    sg.fillRect(0, 0, 128, 128);
+    const blob = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.5, 4.5),
+      new THREE.MeshBasicMaterial({
+        map: new THREE.CanvasTexture(sc),
+        transparent: true,
+        depthWrite: false,
+      })
+    );
+    blob.rotation.x = -Math.PI / 2;
+    blob.position.y = 0.32;
+    pad.add(blob);
+
     this.pad = pad;
     this.scene.add(pad);
     this.padTop = 0.3;
@@ -791,8 +852,8 @@ export class Renderer {
     const space = THREE.MathUtils.clamp(alt / SPACE_ALT, 0, 1);
     this.skyUniforms.uSpace.value = space;
     this.starMat.opacity = THREE.MathUtils.smoothstep(space, 0.35, 0.9);
-    this.hemi.intensity = 0.7 * (1 - space * 0.8);
-    this.sun.intensity = 2.2 - space * 0.6;
+    this.hemi.intensity = 0.5 * (1 - space * 0.8);
+    this.sun.intensity = 2.0 - space * 0.5;
     this.scene.fog.color.copy(this.fogDay).lerp(this.fogSpace, space);
 
     // clouds drift sideways and thin out once the air is basically gone
