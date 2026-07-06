@@ -112,6 +112,11 @@ export class Flight {
     this.done = false;
     this.events = []; // renderer/audio consume these each step
     this.result = null;
+
+    // altitude samples + event markers for the results graph
+    this.track = [[0, 0]];
+    this.lastSample = 0;
+    this.graphMarks = [];
   }
 
   // player can shut the main engine down early with the spacebar,
@@ -119,6 +124,7 @@ export class Flight {
   cutEngine() {
     if (this.done || this.engineCut || this.fuel <= 0 || !this.design.engine) return false;
     this.engineCut = true;
+    this.graphMarks.push({ t: this.time, alt: this.alt, type: 'cutoff' });
     return true;
   }
 
@@ -150,13 +156,17 @@ export class Flight {
     // burn fuel
     if (this.fuel > 0 && this.design.engine && !this.engineCut) {
       this.fuel = Math.max(0, this.fuel - PARTS[this.design.engine].burn * dt);
-      if (this.fuel === 0) this.events.push('burnout');
+      if (this.fuel === 0) {
+        this.events.push('burnout');
+        this.graphMarks.push({ t: this.time, alt: this.alt, type: 'burnout' });
+      }
     }
     if (this.boostersAttached && this.boosterFuel > 0) {
       this.boosterFuel = Math.max(0, this.boosterFuel - PARTS['booster-pair'].burn * dt);
       if (this.boosterFuel === 0) {
         this.boostersAttached = false;
         this.events.push('separation');
+        this.graphMarks.push({ t: this.time, alt: this.alt, type: 'sep' });
       }
     }
 
@@ -199,6 +209,7 @@ export class Flight {
       this.tumbling = false;
       this.tilt = 0;
       this.events.push('chute');
+      this.graphMarks.push({ t: this.time, alt: this.alt, type: 'chute' });
     }
     const accel = (effectiveThrust - dragForce) / mass - GRAVITY;
     this.vel += accel * dt;
@@ -213,9 +224,16 @@ export class Flight {
 
     if (this.alt > this.maxAlt) this.maxAlt = this.alt;
 
+    // sample altitude for the results graph
+    if (this.time - this.lastSample >= 0.25 && this.track.length < 1200) {
+      this.lastSample = this.time;
+      this.track.push([this.time, Math.max(0, this.alt)]);
+    }
+
     // touchdown
     if (this.alt <= 0 && this.time > 0.5) {
       this.alt = 0;
+      this.track.push([this.time, 0]);
       const speed = Math.abs(this.vel);
       const safe = speed <= SAFE_SPEED;
       this.events.push(safe ? 'landed' : 'crashed');
@@ -227,7 +245,10 @@ export class Flight {
   buildResult(landingSpeed, safe) {
     const fuelUsed = Math.max(1, Math.round(this.fuelStart - this.fuel + (this.design.boosters ? PARTS['booster-pair'].fuel - this.boosterFuel : 0)));
     const maxAlt = Math.round(this.maxAlt);
-    return { maxAlt, fuelUsed, landingSpeed: Math.round(landingSpeed), safe };
+    return {
+      maxAlt, fuelUsed, landingSpeed: Math.round(landingSpeed), safe,
+      track: this.track, marks: this.graphMarks,
+    };
   }
 }
 

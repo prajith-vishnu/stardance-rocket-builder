@@ -151,7 +151,67 @@ export function flashEvent(text) {
 
 // ---- results ----
 
+// altitude-over-time telemetry plot. amber line, dots for events:
+// red = burnout/cutoff, gray = booster sep, green = chute
+function drawFlightGraph(result) {
+  const canvas = $('res-graph');
+  if (!canvas) return;
+  const track = result.track;
+  if (!track || track.length < 2) {
+    canvas.classList.add('hidden');
+    return;
+  }
+  canvas.classList.remove('hidden');
+  const g = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+  g.clearRect(0, 0, W, H);
+
+  const tMax = Math.max(track[track.length - 1][0], 1);
+  const aMax = Math.max(result.maxAlt, 10);
+  const L = 8, R = 8, T = 16, B = 8;
+  const X = (t) => L + (t / tMax) * (W - L - R);
+  const Y = (a) => H - B - (a / aMax) * (H - T - B);
+
+  // faint gridlines
+  g.strokeStyle = 'rgba(255,255,255,0.07)';
+  g.lineWidth = 1;
+  for (let i = 1; i <= 3; i++) {
+    const y = T + ((H - T - B) / 4) * i;
+    g.beginPath(); g.moveTo(L, y); g.lineTo(W - R, y); g.stroke();
+  }
+  // ground
+  g.strokeStyle = 'rgba(255,255,255,0.25)';
+  g.beginPath(); g.moveTo(L, Y(0)); g.lineTo(W - R, Y(0)); g.stroke();
+
+  // altitude curve
+  g.strokeStyle = '#ffb000';
+  g.lineWidth = 2;
+  g.beginPath();
+  track.forEach(([t, a], i) => (i ? g.lineTo(X(t), Y(a)) : g.moveTo(X(t), Y(a))));
+  g.stroke();
+
+  // event dots
+  const colors = { burnout: '#ff5348', cutoff: '#ff5348', sep: '#8fa0ba', chute: '#3fdc82' };
+  for (const m of result.marks || []) {
+    g.fillStyle = colors[m.type] || '#ffffff';
+    g.beginPath();
+    g.arc(X(m.t), Y(Math.max(0, m.alt)), 3, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // apogee label
+  let peak = track[0];
+  for (const p of track) if (p[1] > peak[1]) peak = p;
+  g.fillStyle = '#d5dfec';
+  g.font = '10px ui-monospace, Menlo, Consolas, monospace';
+  const label = Math.round(peak[1]) + ' m';
+  const lx = Math.min(Math.max(X(peak[0]) - 12, L), W - R - g.measureText(label).width);
+  g.fillText(label, lx, Math.max(Y(peak[1]) - 6, 10));
+}
+
 export function renderResults(mission, result, score, earned, save, isBest) {
+  drawFlightGraph(result);
   $('results-heading').textContent = result.safe ? 'Touchdown' : 'Flight Over';
   $('res-alt').textContent = result.maxAlt + ' m';
   $('res-fuel').textContent = result.fuelUsed + ' units';
