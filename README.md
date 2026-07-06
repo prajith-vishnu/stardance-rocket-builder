@@ -10,6 +10,8 @@ Play it here: [stardance-rocket-builder.vercel.app](https://stardance-rocket-bui
 ## Features
 
 - 3D build mode with orbit camera, realistic metal materials, and shadows
+- A desert launch site to fly out of: rolling terrain, dirt roads, a
+  hangar and tank farm, mountains on the horizon, and a moon overhead
 - Twelve rocket parts: nose cones, fuel tanks, three engine tiers, fins,
   strap-on boosters, and a parachute
 - Arcade flight physics: thrust, fuel burn, drag, and stability. Rockets
