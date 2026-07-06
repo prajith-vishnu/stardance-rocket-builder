@@ -70,6 +70,15 @@ export class Renderer {
     this.setupClouds();
     this.setupParticles();
 
+    // the environment map is there for the rocket's metal. tone it way
+    // down on the terrain and buildings or the desert washes out white.
+    // rocket parts are built later, so they keep the full reflections
+    this.scene.traverse((o) => {
+      if (o.isMesh && o.material && 'envMapIntensity' in o.material) {
+        o.material.envMapIntensity = 0.2;
+      }
+    });
+
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.06;
@@ -249,6 +258,7 @@ export class Renderer {
     g.fillRect(1014, 1014, 20, 20);
 
     const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
     return tex;
   }
