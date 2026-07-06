@@ -270,6 +270,144 @@ export class Renderer {
     this.padTop = 0.3;
   }
 
+  setupScenery() {
+    const scenery = new THREE.Group();
+
+    // mountain ring on the horizon, hazed out by the fog
+    const mountainMat = new THREE.MeshStandardMaterial({
+      color: 0x75705f, roughness: 1, flatShading: true,
+    });
+    for (let i = 0; i < 26; i++) {
+      const a = (i / 26) * Math.PI * 2 + Math.random() * 0.2;
+      const r = 1350 + Math.random() * 350;
+      const h = 90 + Math.random() * 150;
+      const m = new THREE.Mesh(
+        new THREE.ConeGeometry(120 + Math.random() * 150, h, 5 + Math.floor(Math.random() * 3)),
+        mountainMat
+      );
+      m.position.set(Math.cos(a) * r, h / 2 - 12, Math.sin(a) * r);
+      m.rotation.y = Math.random() * Math.PI;
+      scenery.add(m);
+    }
+
+    const concrete = new THREE.MeshStandardMaterial({ color: 0x9d9c94, roughness: 0.9 });
+    const whiteMetal = new THREE.MeshStandardMaterial({ color: 0xdcdcd4, metalness: 0.4, roughness: 0.5 });
+    const darkSteel = new THREE.MeshStandardMaterial({ color: 0x3a3d42, metalness: 0.7, roughness: 0.5 });
+
+    // assembly hangar with a big door facing the pad
+    const hangar = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(16, 9, 11), whiteMetal);
+    body.position.y = 4.5;
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(17, 0.7, 12), darkSteel);
+    roof.position.y = 9.3;
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.2, 7, 7), darkSteel);
+    door.position.set(8.05, 3.5, 0);
+    hangar.add(body, roof, door);
+    hangar.position.set(-36, 0, 14);
+    hangar.rotation.y = 0.35;
+    hangar.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    scenery.add(hangar);
+
+    // fuel tank farm
+    for (let i = 0; i < 3; i++) {
+      const tank = new THREE.Group();
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 5.5, 18), whiteMetal);
+      barrel.position.y = 2.75;
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(2.2, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), whiteMetal);
+      cap.position.y = 5.5;
+      tank.add(barrel, cap);
+      tank.position.set(20 + i * 5.5, 0, -16);
+      tank.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+      scenery.add(tank);
+    }
+
+    // tracking dish
+    const dishGroup = new THREE.Group();
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 2.6, 10), darkSteel);
+    pedestal.position.y = 1.3;
+    const dish = new THREE.Mesh(
+      new THREE.SphereGeometry(3, 18, 8, 0, Math.PI * 2, 0, Math.PI / 3),
+      new THREE.MeshStandardMaterial({ color: 0xc9c9c2, roughness: 0.6, side: THREE.DoubleSide })
+    );
+    dish.position.y = 3.4;
+    dish.rotation.x = Math.PI; // bowl opens skyward
+    dish.rotation.z = 0.5;
+    dishGroup.add(pedestal, dish);
+    dishGroup.position.set(-16, 0, -26);
+    dishGroup.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    scenery.add(dishGroup);
+
+    // low bunker with an antenna
+    const bunker = new THREE.Mesh(new THREE.BoxGeometry(5, 2.2, 4), concrete);
+    bunker.position.set(26, 1.1, 22);
+    bunker.castShadow = true;
+    bunker.receiveShadow = true;
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 5, 6), darkSteel);
+    antenna.position.set(26, 4.7, 22);
+    scenery.add(bunker, antenna);
+
+    // floodlight towers around the pad
+    const lampMat = new THREE.MeshStandardMaterial({
+      color: 0xfff7d0, emissive: 0xfff2b8, emissiveIntensity: 0.8,
+    });
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const pole = new THREE.Mesh(new THREE.BoxGeometry(0.35, 12, 0.35), darkSteel);
+      pole.position.set(Math.cos(a) * 13, 6, Math.sin(a) * 13);
+      pole.castShadow = true;
+      const head = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.5), lampMat);
+      head.position.set(Math.cos(a) * 13, 12.2, Math.sin(a) * 13);
+      head.lookAt(0, 2, 0);
+      scenery.add(pole, head);
+    }
+
+    // windsock
+    const sockPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4, 6), darkSteel);
+    sockPole.position.set(12, 2, -9);
+    const sock = new THREE.Mesh(
+      new THREE.ConeGeometry(0.35, 1.6, 8, 1, true),
+      new THREE.MeshStandardMaterial({ color: 0xd96a2a, roughness: 0.8, side: THREE.DoubleSide })
+    );
+    sock.rotation.z = Math.PI / 2;
+    sock.position.set(12.9, 3.9, -9);
+    scenery.add(sockPole, sock);
+
+    // dirt road strips leading away from the pad apron
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x4c4438, roughness: 1 });
+    const road1 = new THREE.Mesh(new THREE.PlaneGeometry(30, 2.4), roadMat);
+    road1.rotation.x = -Math.PI / 2;
+    road1.position.set(-19, 0.03, 8);
+    road1.rotation.z = 0.18;
+    const road2 = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 26), roadMat);
+    road2.rotation.x = -Math.PI / 2;
+    road2.position.set(14, 0.03, 12);
+    road2.receiveShadow = true;
+    road1.receiveShadow = true;
+    scenery.add(road1, road2);
+
+    // scattered rocks and scrub bushes out to the hills
+    const rockGeo = new THREE.DodecahedronGeometry(1, 0);
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x7b7266, roughness: 1, flatShading: true });
+    const bushGeo = new THREE.IcosahedronGeometry(0.7, 0);
+    const bushMat = new THREE.MeshStandardMaterial({ color: 0x4f5438, roughness: 1, flatShading: true });
+    for (let i = 0; i < 70; i++) {
+      const isRock = i % 2 === 0;
+      const m = new THREE.Mesh(isRock ? rockGeo : bushGeo, isRock ? rockMat : bushMat);
+      const a = Math.random() * Math.PI * 2;
+      const r = 16 + Math.random() * 320;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      const s = isRock ? 0.3 + Math.random() * 1.4 : 0.5 + Math.random() * 0.9;
+      m.scale.set(s, s * (isRock ? 0.7 : 0.8), s);
+      m.position.set(x, this.hillHeight(x, z) + s * 0.3, z);
+      m.rotation.y = Math.random() * Math.PI;
+      if (r < 40) m.castShadow = true;
+      scenery.add(m);
+    }
+
+    this.scene.add(scenery);
+  }
+
   setupClouds() {
     // soft billboard clouds between roughly 180m and 500m, so the rocket
     // punches through the layer on the way up
