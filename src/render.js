@@ -730,6 +730,12 @@ export class Renderer {
       this.chuteAnchorY = topY;
     }
 
+    // collect nozzle materials so the bells can glow while firing
+    this.glowMats = [];
+    this.rocket.traverse((o) => {
+      if (o.isMesh && o.userData.isNozzle) this.glowMats.push(o.material);
+    });
+
     this.rocketHeight = y;
     this.rocket.position.set(0, this.padTop, 0);
     this.rocket.rotation.set(0, 0, 0);
@@ -910,6 +916,8 @@ export class Renderer {
 
     // engine exhaust while burning, flavored per engine tier
     const frac = flight.thrustFrac();
+    // the bells heat up and glow while there is thrust
+    for (const m of this.glowMats || []) m.emissiveIntensity = frac * 1.5;
     const st = this.flameStyle || FLAME_STYLES['engine-basic'];
     if (frac > 0 && flight.fuel > 0) {
       for (const e of this.emitters) {
