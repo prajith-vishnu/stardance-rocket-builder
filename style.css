@@ -477,6 +477,39 @@ td:last-child.stat-bad { color: var(--red); }
   font-weight: 700;
 }
 
+/* camera hint at the bottom of build mode */
+#build-hint {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  padding: 4px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* shown only if the game fails to boot */
+#boot-error {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 340px;
+  background: var(--paper);
+  border: 2px solid var(--red);
+  box-shadow: 5px 5px 0 var(--shadow);
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--ink);
+  z-index: 50;
+}
+
 /* achievement stamps on the results page */
 .ach-stamp {
   border: 2px solid var(--red);

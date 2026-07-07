@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Build a rocket out of parts, launch it, and see how high it gets. A 3D game made for Hack Club Stardance.">
   <title>Stardance Rocket Builder</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23f2eee1'/><path d='M8 1 L11 8 L11 12 L5 12 L5 8 Z' fill='%23d8451f'/><rect x='5' y='12' width='6' height='2' fill='%231a1b1d'/></svg>">
   <link rel="stylesheet" href="style.css">
   <script type="importmap">
   {
@@ -61,6 +63,8 @@
       <p class="hint">Click a part to remove it</p>
       <div id="stack-list"></div>
     </div>
+
+    <p id="build-hint">drag to orbit - scroll to zoom</p>
   </div>
 
   <!-- launch mode -->
@@ -111,6 +115,21 @@
 
   <button id="btn-mute" class="btn corner-btn">Sound: On</button>
 
+  <p id="boot-error" class="hidden">
+    Could not load three.js from the CDN. Check your internet
+    connection and refresh the page.
+  </p>
+
+  <script>
+    // if the module or the cdn fails, say so instead of a dead page
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        if (!window.__gameBooted) {
+          document.getElementById('boot-error').classList.remove('hidden');
+        }
+      }, 6000);
+    });
+  </script>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

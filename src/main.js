@@ -283,3 +283,4 @@ function frame(now) {
 
 goTitle();
 requestAnimationFrame(frame);
+window.__gameBooted = true;
