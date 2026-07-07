@@ -24,7 +24,10 @@ Play it here: [stardance-rocket-builder.vercel.app](https://stardance-rocket-bui
 - Sky that fades from daytime blue to a starfield as you climb, with
   a cloud layer to punch through on the way
 - Three missions: Max Altitude, Safe Landing, and Efficiency
-- Part unlocks and best scores persist between sessions
+- Wind that changes every launch and leans on rockets with weak fins
+- Altitude callouts during the climb and a personal best to chase
+- Eight achievements for the dumb stuff you will do anyway
+- Part unlocks, best scores, and achievements persist between sessions
 - All sound effects generated in the browser with the Web Audio API
 
 ## How to Play
