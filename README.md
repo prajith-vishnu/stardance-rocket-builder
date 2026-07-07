@@ -62,6 +62,10 @@ python3 -m http.server
 
 Then open http://localhost:8000 in a browser.
 
+On older machines the game watches its own framerate for the first few
+seconds and automatically turns off bloom and drops shadow resolution
+if it is struggling.
+
 ## Acknowledgments
 
 Claude was used to help write parts of the code for this project.
