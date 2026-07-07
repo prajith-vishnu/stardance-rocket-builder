@@ -477,6 +477,53 @@ td:last-child.stat-bad { color: var(--red); }
   font-weight: 700;
 }
 
+/* achievement stamps on the results page */
+.ach-stamp {
+  border: 2px solid var(--red);
+  color: var(--red);
+  padding: 7px 10px;
+  margin: 8px 0;
+  transform: rotate(-1.2deg);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.ach-stamp .part-sub {
+  display: block;
+  color: var(--dim);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.66rem;
+  margin-top: 2px;
+}
+
+/* achievement list in the catalog */
+.ach-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--ink);
+  border-left: 4px solid var(--ink);
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  opacity: 0.55;
+}
+.ach-row.earned { opacity: 1; border-left-color: var(--red); }
+.ach-row .part-sub {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--dim);
+}
+.ach-state {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.ach-row.earned .ach-state { color: var(--red); font-weight: 700; }
+
 /* scrollbars */
 ::-webkit-scrollbar { width: 9px; }
 ::-webkit-scrollbar-track { background: var(--paper-dim); }
