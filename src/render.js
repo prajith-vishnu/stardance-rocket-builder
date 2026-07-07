@@ -452,16 +452,17 @@ export class Renderer {
     mast.position.y = H + 4.9;
     fss.add(craneBase, craneArm, mast);
 
-    // swing arms, stored so the renderer can retract them at ignition
+    // swing arms, stored so the renderer can retract them at ignition.
+    // sized so the plate just kisses the hull instead of clipping it
     this.swingArms = [];
-    for (const ay of [2.7, 5.4]) {
+    for (const ay of [2.7, 4.6]) {
       const pivot = new THREE.Group();
       pivot.position.set(TW / 2, ay, TW / 2);
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.28, 0.62), steel);
-      arm.position.x = 1.55;
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.28, 0.62), steel);
+      arm.position.x = 1.2;
       arm.castShadow = true;
-      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.7), gray);
-      plate.position.x = 3.05;
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.7, 0.7), gray);
+      plate.position.x = 2.55;
       pivot.add(arm, plate);
       pivot.rotation.y = -Math.PI / 4; // docked against the rocket
       pivot.userData.docked = -Math.PI / 4;
@@ -1193,7 +1194,7 @@ export class Renderer {
 
     if (this.mode === 'title') {
       this.titleAngle += dt * 0.12;
-      const r = 13;
+      const r = 16;
       const goal = new THREE.Vector3(
         Math.cos(this.titleAngle) * r,
         this.padTop + 3.2 + Math.sin(this.titleAngle * 0.4) * 0.8,
