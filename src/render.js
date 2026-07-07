@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createPartMesh, disposeGroup } from './parts.js';
 import { SPACE_ALT } from './physics.js';
 
-const MAX_PARTICLES = 900;
+const MAX_PARTICLES = 1400;
 
 // each engine tier gets its own flame character
 const FLAME_STYLES = {
@@ -1170,18 +1170,26 @@ export class Renderer {
         }
       }
     }
-    // steam and dust billowing off the pad for the first moments
-    if (frac > 0 && flight.alt < 20) {
-      for (let i = 0; i < 4; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const dx = Math.cos(a), dz = Math.sin(a);
+    // swing arms pull back once the engine lights
+    for (const arm of this.swingArms || []) {
+      arm.rotation.y += (arm.userData.retracted - arm.rotation.y) * Math.min(1, 1.6 * dt);
+    }
+
+    // the plume hits the deflector and pours out both ends of the
+    // trench as steam during the first moments of flight
+    if (frac > 0 && flight.alt < 25) {
+      for (let i = 0; i < 5; i++) {
+        const dir = Math.random() < 0.5 ? -1 : 1;
         this.spawnParticle(
-          new THREE.Vector3(dx * 0.9, this.padTop + 0.1, dz * 0.9),
-          new THREE.Vector3(dx * (2.5 + Math.random() * 3), 0.4 + Math.random(), dz * (2.5 + Math.random() * 3)),
-          0.8, 1.6, 3.5, 1
+          new THREE.Vector3(dir * (2.5 + Math.random() * 9), 1.6, (Math.random() - 0.5) * 2.4),
+          new THREE.Vector3(dir * (6 + Math.random() * 5), 0.5 + Math.random() * 1.6, (Math.random() - 0.5) * 2.5),
+          1.0, 2.4, 4.5, 1
         );
       }
     }
+    // warm flicker on the pad structures while the plume is close
+    this.padLight.intensity =
+      frac * 28 * THREE.MathUtils.clamp(1 - flight.alt / 50, 0, 1) * (0.85 + Math.random() * 0.3);
     // booster exhaust
     if (this.boosterEmitters && flight.boostersAttached && flight.boosterFuel > 0) {
       for (const e of this.boosterEmitters) {
