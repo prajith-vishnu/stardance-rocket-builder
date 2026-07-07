@@ -224,7 +224,9 @@ function nozzleMaterial() {
 // Each returns a THREE.Group. group.userData.height is the stacking height,
 // so the rocket assembler knows how far to move up for the next part.
 
-const R = 0.5; // shared body radius so parts line up
+// shared body radius so parts line up. kept slim: real rockets are
+// 8-15x longer than they are wide, and a fat body reads as a toy
+const R = 0.32;
 
 // painted white with a dark anti-glare tip and an orange band, drawn
 // once onto a canvas and wrapped around the lathe
@@ -255,11 +257,11 @@ function getNoseTexture() {
 
 function buildNoseStandard() {
   const g = new THREE.Group();
-  // lathe profile: rounded cone
+  // lathe profile: tangent ogive, much finer than a rounded dome
   const pts = [];
-  for (let i = 0; i <= 16; i++) {
-    const t = i / 16;
-    pts.push(new THREE.Vector2(R * Math.cos(t * Math.PI * 0.5), 1.2 * Math.sin(t * Math.PI * 0.5)));
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20;
+    pts.push(new THREE.Vector2(Math.max(R * Math.pow(1 - t, 0.68), 0.001), 1.6 * t));
   }
   // clearcoat gives the paint that waxy aerospace-gloss look
   const mat = new THREE.MeshPhysicalMaterial({
@@ -268,7 +270,7 @@ function buildNoseStandard() {
   });
   const mesh = new THREE.Mesh(new THREE.LatheGeometry(pts, 48), mat);
   g.add(mesh);
-  g.userData.height = 1.2;
+  g.userData.height = 1.6;
   return g;
 }
 
@@ -278,16 +280,16 @@ function buildNoseAero() {
   const pts = [];
   for (let i = 0; i <= 16; i++) {
     const t = i / 16;
-    pts.push(new THREE.Vector2(R * (1 - t * t), 1.6 * t));
+    pts.push(new THREE.Vector2(Math.max(R * (1 - t * t), 0.001), 2.2 * t));
   }
   const body = new THREE.Mesh(
     new THREE.LatheGeometry(pts, 48),
     new THREE.MeshStandardMaterial({ color: 0xd9dde2, metalness: 0.75, roughness: 0.3 })
   );
-  const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.5, 8), darkMetal());
-  spike.position.y = 1.8;
+  const spike = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.5, 8), darkMetal());
+  spike.position.y = 2.4;
   g.add(body, spike);
-  g.userData.height = 2.05;
+  g.userData.height = 2.65;
   return g;
 }
 
@@ -304,7 +306,7 @@ function buildTank(height) {
   const ringBot = ringTop.clone();
   ringBot.position.y = 0.02;
   // cable raceway conduit running up the hull between the stripes
-  const raceway = new THREE.Mesh(new THREE.BoxGeometry(0.07, height * 0.94, 0.12), darkMetal());
+  const raceway = new THREE.Mesh(new THREE.BoxGeometry(0.045, height * 0.94, 0.075), darkMetal());
   const ra = Math.PI / 4;
   raceway.position.set(Math.cos(ra) * (R + 0.02), height / 2, Math.sin(ra) * (R + 0.02));
   raceway.rotation.y = -ra;
@@ -317,19 +319,19 @@ function buildEngine(id) {
   const g = new THREE.Group();
   if (id === 'engine-basic') {
     // simple bell with a gimbal ring and two feed lines
-    const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.38, 0.5, 36, 1, true), nozzleMaterial());
+    const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.26, 0.5, 36, 1, true), nozzleMaterial());
     bell.position.y = 0.25;
     bell.userData.isNozzle = true;
-    const gimbal = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.03, 8, 24), darkMetal());
+    const gimbal = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.025, 8, 24), darkMetal());
     gimbal.rotation.x = Math.PI / 2;
     gimbal.position.y = 0.52;
     const mount = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.8, 0.25, 32), darkMetal());
     mount.position.y = 0.62;
     g.add(bell, gimbal, mount);
     for (const side of [-1, 1]) {
-      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.3, 8), copperPipe());
-      pipe.position.set(side * 0.2, 0.44, 0);
-      pipe.rotation.z = side * -0.55;
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.3, 8), copperPipe());
+      pipe.position.set(side * 0.14, 0.44, 0);
+      pipe.rotation.z = side * -0.5;
       g.add(pipe);
     }
     g.userData.height = 0.75;
@@ -339,11 +341,11 @@ function buildEngine(id) {
     const pts = [];
     for (let i = 0; i <= 12; i++) {
       const t = i / 12;
-      pts.push(new THREE.Vector2(0.16 + 0.3 * t * t, 0.7 * (1 - t)));
+      pts.push(new THREE.Vector2(0.1 + 0.19 * t * t, 0.7 * (1 - t)));
     }
     const bell = new THREE.Mesh(new THREE.LatheGeometry(pts, 40), nozzleMaterial());
     bell.userData.isNozzle = true;
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.06, 10, 28), darkMetal());
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.045, 10, 28), darkMetal());
     collar.rotation.x = Math.PI / 2;
     collar.position.y = 0.72;
     const mount = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.75, 0.3, 32), darkMetal());
@@ -351,8 +353,8 @@ function buildEngine(id) {
     g.add(bell, collar, mount);
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI * 2 + 0.5;
-      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.42, 8), copperPipe());
-      pipe.position.set(Math.cos(a) * 0.27, 0.62, Math.sin(a) * 0.27);
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.42, 8), copperPipe());
+      pipe.position.set(Math.cos(a) * 0.19, 0.62, Math.sin(a) * 0.19);
       g.add(pipe);
     }
     g.userData.height = 1.07;
@@ -361,14 +363,14 @@ function buildEngine(id) {
     // heavy: cluster of three bells under a wide skirt
     const skirt = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.1, 0.4, 36), darkMetal());
     skirt.position.y = 0.75;
-    const manifold = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.035, 8, 32), copperPipe());
+    const manifold = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.03, 8, 32), copperPipe());
     manifold.rotation.x = Math.PI / 2;
     manifold.position.y = 0.52;
     g.add(skirt, manifold);
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI * 2;
-      const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.24, 0.55, 28, 1, true), nozzleMaterial());
-      bell.position.set(Math.cos(a) * 0.24, 0.3, Math.sin(a) * 0.24);
+      const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.16, 0.55, 28, 1, true), nozzleMaterial());
+      bell.position.set(Math.cos(a) * 0.16, 0.3, Math.sin(a) * 0.16);
       bell.userData.isNozzle = true;
       g.add(bell);
     }
@@ -384,21 +386,22 @@ function buildFins(id) {
   // dark fins on a white body, like most sounding rockets
   const mat = paintedMaterial(id === 'fins-swept' ? 0x2c3340 : 0x24272c);
   // thin extruded fin profile, four around the body
+  // small thin fins: full-diameter slabs are a model-rocket-kit look
   const shape = new THREE.Shape();
   if (id === 'fins-swept') {
     shape.moveTo(0, 0);
-    shape.lineTo(0.55, -0.35);
-    shape.lineTo(0.55, -0.05);
-    shape.lineTo(0, 0.7);
+    shape.lineTo(0.34, -0.24);
+    shape.lineTo(0.34, -0.04);
+    shape.lineTo(0, 0.55);
     shape.lineTo(0, 0);
   } else {
     shape.moveTo(0, 0);
-    shape.lineTo(0.5, 0);
-    shape.lineTo(0.5, 0.35);
-    shape.lineTo(0, 0.6);
+    shape.lineTo(0.3, 0.03);
+    shape.lineTo(0.3, 0.25);
+    shape.lineTo(0, 0.5);
     shape.lineTo(0, 0);
   }
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.04, bevelEnabled: false });
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.024, bevelEnabled: false });
   for (let i = 0; i < 4; i++) {
     const fin = new THREE.Mesh(geo, mat);
     const a = (i / 4) * Math.PI * 2;
@@ -415,15 +418,15 @@ function buildBoosterPair() {
   const mat = boosterMaterial();
   for (const side of [-1, 1]) {
     const booster = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.6, 24), mat);
-    body.position.y = 0.9;
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.4, 24), paintedMaterial(0xb0472a));
-    cone.position.y = 1.9;
-    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.16, 0.25, 20, 1, true), nozzleMaterial());
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 2.2, 24), mat);
+    body.position.y = 1.35;
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.5, 24), paintedMaterial(0xb0472a));
+    cone.position.y = 2.7;
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.11, 0.25, 20, 1, true), nozzleMaterial());
     nozzle.position.y = 0.08;
     nozzle.userData.isNozzle = true;
     booster.add(body, cone, nozzle);
-    booster.position.x = side * (R + 0.24);
+    booster.position.x = side * (R + 0.16);
     booster.userData.isBooster = true;
     booster.userData.side = side;
     g.add(booster);
@@ -447,9 +450,9 @@ export function createPartMesh(id) {
   let g;
   if (id === 'nose-standard') g = buildNoseStandard();
   else if (id === 'nose-aero') g = buildNoseAero();
-  else if (id === 'tank-small') g = buildTank(1.0);
-  else if (id === 'tank-medium') g = buildTank(1.8);
-  else if (id === 'tank-large') g = buildTank(2.8);
+  else if (id === 'tank-small') g = buildTank(1.5);
+  else if (id === 'tank-medium') g = buildTank(2.5);
+  else if (id === 'tank-large') g = buildTank(3.7);
   else if (id.startsWith('engine')) g = buildEngine(id);
   else if (id.startsWith('fins')) g = buildFins(id);
   else if (id === 'booster-pair') g = buildBoosterPair();

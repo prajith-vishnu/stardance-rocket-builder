@@ -11,9 +11,9 @@ const MAX_PARTICLES = 1400;
 
 // each engine tier gets its own flame character
 const FLAME_STYLES = {
-  'engine-basic':  { perFrame: 2, speed: 9,  spread: 2.4, size: 3.0, life: 0.40 },
-  'engine-vector': { perFrame: 3, speed: 15, spread: 1.3, size: 2.6, life: 0.50 },
-  'engine-heavy':  { perFrame: 2, speed: 11, spread: 2.9, size: 3.8, life: 0.55 },
+  'engine-basic':  { perFrame: 2, speed: 9,  spread: 1.8, size: 2.3, life: 0.40 },
+  'engine-vector': { perFrame: 3, speed: 15, spread: 1.0, size: 2.0, life: 0.50 },
+  'engine-heavy':  { perFrame: 2, speed: 11, spread: 2.2, size: 2.9, life: 0.55 },
 };
 
 // sky dome shader: blends a daytime gradient to black based on a
@@ -401,8 +401,8 @@ export class Renderer {
       complex.add(beam, beam2);
     }
     // hold-down clamps around the rocket base
-    for (const [cx, cz] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]]) {
-      const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.8, 0.28), darkConcrete);
+    for (const [cx, cz] of [[-0.55, -0.55], [0.55, -0.55], [-0.55, 0.55], [0.55, 0.55]]) {
+      const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.8, 0.24), darkConcrete);
       clamp.position.set(cx, 3.85, cz);
       clamp.castShadow = true;
       complex.add(clamp);
@@ -462,7 +462,7 @@ export class Renderer {
       arm.position.x = 1.2;
       arm.castShadow = true;
       const plate = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.7, 0.7), gray);
-      plate.position.x = 2.55;
+      plate.position.x = 2.72;
       pivot.add(arm, plate);
       pivot.rotation.y = -Math.PI / 4; // docked against the rocket
       pivot.userData.docked = -Math.PI / 4;
@@ -972,8 +972,8 @@ export class Renderer {
       this.emitters.push(new THREE.Vector3(0, g.userData.nozzleY ?? 0, 0));
       if (g.userData.cluster) {
         // heavy engine gets two extra emitters for its side bells
-        this.emitters.push(new THREE.Vector3(0.24, 0.05, 0));
-        this.emitters.push(new THREE.Vector3(-0.24, 0.05, 0));
+        this.emitters.push(new THREE.Vector3(0.16, 0.05, 0));
+        this.emitters.push(new THREE.Vector3(-0.16, 0.05, 0));
       }
       y += g.userData.height;
     }
@@ -1007,8 +1007,8 @@ export class Renderer {
       this.boosterGroup = g;
       // booster nozzle emitter positions
       this.boosterEmitters = [
-        new THREE.Vector3(0.74, finY, 0),
-        new THREE.Vector3(-0.74, finY, 0),
+        new THREE.Vector3(0.48, finY, 0),
+        new THREE.Vector3(-0.48, finY, 0),
       ];
     }
     if (design.parachute) {
@@ -1031,8 +1031,8 @@ export class Renderer {
       const cluster = this.emitters.length > 1;
       for (const e of this.emitters) {
         const col = cluster
-          ? this.makeFlameColumn(0.1, 0.3, 3.6)
-          : this.makeFlameColumn(0.16, 0.48, 5);
+          ? this.makeFlameColumn(0.07, 0.2, 3)
+          : this.makeFlameColumn(0.11, 0.34, 4.4);
         col.position.copy(e);
         col.userData.kind = 'main';
         this.rocket.add(col);
@@ -1041,7 +1041,7 @@ export class Renderer {
     }
     if (this.boosterEmitters) {
       for (const e of this.boosterEmitters) {
-        const col = this.makeFlameColumn(0.07, 0.22, 2.6);
+        const col = this.makeFlameColumn(0.045, 0.14, 2.1);
         col.position.copy(e);
         col.position.y += 0.08;
         col.userData.kind = 'booster';
@@ -1294,7 +1294,7 @@ export class Renderer {
         const world = e.clone();
         this.rocket.localToWorld(world);
         for (let i = 0; i < 2; i++) {
-          this.spawnParticle(world, new THREE.Vector3(0, -8, 0), 1.8, 0.4, 2.2);
+          this.spawnParticle(world, new THREE.Vector3(0, -8, 0), 1.4, 0.4, 1.7);
         }
       }
     }
