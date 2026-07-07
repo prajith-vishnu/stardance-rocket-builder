@@ -87,9 +87,15 @@ export function validateDesign(design) {
   return null;
 }
 
+// rolled fresh every time the player goes to the pad
+export function rollWind() {
+  return Math.round(1 + Math.random() * 7);
+}
+
 export class Flight {
-  constructor(design) {
+  constructor(design, wind = 0) {
     this.design = design;
+    this.wind = wind;
     this.stats = computeStats(design);
 
     this.alt = 0;
@@ -104,6 +110,7 @@ export class Flight {
     this.tilt = 0;
     this.tiltDir = Math.random() * Math.PI * 2;
     this.tumbling = false;
+    this.everTumbled = false;
 
     this.chuteDeployed = false;
     this.engineCut = false;
@@ -180,14 +187,18 @@ export class Flight {
       if (lack > 0) {
         this.tilt += lack * 0.12 * dt * (1 + this.vel * 0.004);
       } else {
-        this.tilt = Math.max(0, this.tilt - 0.3 * dt);
+        this.tilt = Math.max(0, this.tilt - this.tilt * 1.5 * dt);
       }
+      // wind leans the rocket over; fin authority fights it back
+      const finGrip = Math.max(0.35, 1 - this.stats.stabilityRating * 0.2);
+      this.tilt += this.wind * 0.02 * finGrip * dt;
       // small random shake either way, worse when unstable
       this.tilt += (Math.random() - 0.5) * 0.01;
       if (this.tilt < 0) this.tilt = 0;
     }
     if (this.tilt > 1.2 && !this.tumbling) {
       this.tumbling = true;
+      this.everTumbled = true;
       this.events.push('tumble');
     }
     if (this.tumbling) {
@@ -267,5 +278,49 @@ export function scoreFlight(mission, result) {
   if (result.safe && actuallyFlew) score += 50; // small bonus on any mission
   return Math.max(0, score);
 }
+
+// one-time badges, checked against the flight after every landing
+export const ACHIEVEMENTS = [
+  {
+    id: 'first-flight', name: 'Off the Ground',
+    desc: 'complete a flight past 10 m',
+    test: (r) => r.maxAlt >= 10,
+  },
+  {
+    id: 'above-the-air', name: 'Where the Sky Ends',
+    desc: 'climb above ' + SPACE_ALT + ' m',
+    test: (r) => r.maxAlt >= SPACE_ALT,
+  },
+  {
+    id: 'soft-touch', name: 'Soft Touch',
+    desc: 'touch down under 5 m/s',
+    test: (r) => r.safe && r.landingSpeed <= 5,
+  },
+  {
+    id: 'no-fins', name: 'Who Needs Fins',
+    desc: 'reach 300 m with no fins fitted',
+    test: (r, f) => !f.design.fins && r.maxAlt >= 300,
+  },
+  {
+    id: 'lawn-dart', name: 'Lawn Dart',
+    desc: 'hit the desert faster than 150 m/s',
+    test: (r) => !r.safe && r.landingSpeed >= 150,
+  },
+  {
+    id: 'heavy-metal', name: 'Heavy Metal',
+    desc: 'get a rocket over 300 kg past 100 m',
+    test: (r, f) => f.stats.mass >= 300 && r.maxAlt >= 100,
+  },
+  {
+    id: 'fumes', name: 'Running on Fumes',
+    desc: 'land safely with under 5 percent fuel left',
+    test: (r, f) => r.safe && f.fuelStart > 0 && f.fuel <= f.fuelStart * 0.05,
+  },
+  {
+    id: 'tumbler', name: 'Regained Composure',
+    desc: 'lose control mid-flight and still land safely',
+    test: (r, f) => f.everTumbled && r.safe,
+  },
+];
 
 export { SPACE_ALT, SAFE_SPEED };

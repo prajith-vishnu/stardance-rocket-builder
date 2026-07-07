@@ -1,5 +1,5 @@
 import { PARTS, CATEGORY_ORDER } from './parts.js';
-import { computeStats, validateDesign, MISSIONS } from './physics.js';
+import { computeStats, validateDesign, MISSIONS, ACHIEVEMENTS } from './physics.js';
 import { audio } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
@@ -17,6 +17,8 @@ export function loadSave() {
     points: save.points ?? 0,
     unlocked: save.unlocked ?? [],
     best: save.best ?? { altitude: 0, landing: 0, efficiency: 0 },
+    bestAlt: save.bestAlt ?? 0,
+    achievements: save.achievements ?? [],
   };
 }
 
@@ -97,8 +99,11 @@ export function renderStack(design, onRemove) {
   }
 }
 
-export function renderStats(design) {
+export function renderStats(design, wind) {
   const s = computeStats(design);
+  const windEl = $('stat-wind');
+  windEl.textContent = wind + ' m/s';
+  windEl.className = wind >= 6 ? 'stat-bad' : wind <= 2 ? 'stat-good' : '';
   $('stat-mass').textContent = s.mass + ' kg';
   $('stat-thrust').textContent = s.thrust + ' N';
 
@@ -131,6 +136,10 @@ export function renderMissionPicker(current, onPick) {
 }
 
 // ---- launch readout ----
+
+export function setBestReadout(bestAlt) {
+  $('fl-best').textContent = bestAlt > 0 ? bestAlt + ' m' : '-';
+}
 
 export function updateFlightReadout(flight) {
   $('fl-alt').textContent = Math.max(0, Math.round(flight.alt)) + ' m';
@@ -210,8 +219,16 @@ function drawFlightGraph(result) {
   g.fillText(label, lx, Math.max(Y(peak[1]) - 6, 10));
 }
 
-export function renderResults(mission, result, score, earned, save, isBest) {
+export function renderResults(mission, result, score, earned, save, isBest, newAchievements) {
   drawFlightGraph(result);
+  const achBox = $('res-achievements');
+  achBox.innerHTML = '';
+  for (const a of newAchievements || []) {
+    const el = document.createElement('div');
+    el.className = 'ach-stamp';
+    el.innerHTML = '<span>' + a.name + '</span><span class="part-sub">' + a.desc + '</span>';
+    achBox.appendChild(el);
+  }
   $('results-heading').textContent = result.safe ? 'Touchdown' : 'Flight Over';
   $('res-alt').textContent = result.maxAlt + ' m';
   $('res-fuel').textContent = result.fuelUsed + ' units';
@@ -253,6 +270,18 @@ export function renderUnlocks(save, onBuy) {
       row.appendChild(btn);
     }
     list.appendChild(row);
+  }
+
+  const achList = $('achievement-list');
+  achList.innerHTML = '';
+  for (const a of ACHIEVEMENTS) {
+    const earned = save.achievements.includes(a.id);
+    const row = document.createElement('div');
+    row.className = 'ach-row' + (earned ? ' earned' : '');
+    row.innerHTML =
+      '<div><div>' + a.name + '</div><span class="part-sub">' + a.desc + '</span></div>' +
+      '<span class="ach-state">' + (earned ? 'Earned' : 'Locked') + '</span>';
+    achList.appendChild(row);
   }
 }
 

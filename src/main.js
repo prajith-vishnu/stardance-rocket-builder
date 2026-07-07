@@ -1,6 +1,6 @@
 import { Renderer } from './render.js';
 import { PARTS } from './parts.js';
-import { Flight, scoreFlight, validateDesign } from './physics.js';
+import { Flight, scoreFlight, validateDesign, rollWind, ACHIEVEMENTS } from './physics.js';
 import { audio } from './audio.js';
 import * as ui from './ui.js';
 
@@ -11,6 +11,11 @@ let mission = 'altitude';
 let state = 'title'; // title | build | launch | results | unlocks
 let flight = null;
 let unlocksReturnTo = 'title';
+let wind = rollWind();
+// per-flight altitude callouts
+const MILESTONES = [100, 250, 500, 1000, 1500, 2000];
+let hitMilestones = new Set();
+let beatBest = false;
 
 // current rocket design, seeded with the free starter parts so the
 // first visit to the pad is not an empty scene
@@ -80,7 +85,7 @@ function refreshBuild() {
   renderer.buildRocket(design);
   ui.renderPalette(save, design, addPart);
   ui.renderStack(design, removePart);
-  ui.renderStats(design);
+  ui.renderStats(design, wind);
   ui.renderMissionPicker(mission, (m) => {
     mission = m;
     refreshBuild();
@@ -102,6 +107,8 @@ function goBuild() {
   state = 'build';
   flight = null;
   audio.stopEngine();
+  // fresh weather every time you come back to the pad
+  wind = rollWind();
   refreshBuild();
   renderer.setMode('build');
   ui.showScreen('build-ui');
@@ -112,10 +119,13 @@ function goLaunch() {
   // drop focus so spacebar goes to engine cutoff, not the button
   document.activeElement?.blur?.();
   state = 'launch';
-  flight = new Flight(design);
+  flight = new Flight(design, wind);
+  hitMilestones = new Set();
+  beatBest = false;
   renderer.buildRocket(design);
   renderer.setMode('launch');
   ui.showScreen('launch-ui');
+  ui.setBestReadout(save.bestAlt);
   audio.ignition();
   audio.startEngine();
   ui.flashEvent('Liftoff');
@@ -129,10 +139,20 @@ function goResults() {
   const score = scoreFlight(mission, result);
   const isBest = score > save.best[mission];
   if (isBest) save.best[mission] = score;
+  if (result.maxAlt > save.bestAlt) save.bestAlt = result.maxAlt;
   save.points += score;
+
+  // hand out any achievements this flight earned
+  const newAchievements = [];
+  for (const a of ACHIEVEMENTS) {
+    if (!save.achievements.includes(a.id) && a.test(result, flight)) {
+      save.achievements.push(a.id);
+      newAchievements.push(a);
+    }
+  }
   ui.storeSave(save);
 
-  ui.renderResults(mission, result, score, score, save, isBest);
+  ui.renderResults(mission, result, score, score, save, isBest, newAchievements);
   ui.showScreen('results-screen');
 }
 
@@ -227,6 +247,19 @@ function frame(now) {
       flight.step(dt);
       handleFlightEvents();
       ui.updateFlightReadout(flight);
+      // altitude callouts on the way up
+      for (const m of MILESTONES) {
+        if (flight.alt >= m && !hitMilestones.has(m)) {
+          hitMilestones.add(m);
+          ui.flashEvent(m + ' m');
+          audio.ping();
+        }
+      }
+      if (!beatBest && save.bestAlt > 50 && flight.alt > save.bestAlt) {
+        beatBest = true;
+        ui.flashEvent('New best altitude');
+        audio.ping();
+      }
       audio.setEngineLevel(flight.fuel > 0 || (flight.boostersAttached && flight.boosterFuel > 0) ? flight.thrustFrac() : 0);
       if (flight.done) {
         audio.stopEngine();
