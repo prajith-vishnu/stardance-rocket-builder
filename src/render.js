@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createPartMesh, disposeGroup } from './parts.js';
 import { SPACE_ALT } from './physics.js';
 
@@ -25,12 +29,18 @@ const skyFragment = `
   varying vec3 vPos;
   uniform float uSpace; // 0 = ground, 1 = space
   void main() {
-    float h = normalize(vPos).y * 0.5 + 0.5;
+    vec3 dir = normalize(vPos);
+    float h = dir.y * 0.5 + 0.5;
     vec3 horizon = vec3(0.75, 0.82, 0.90);
     vec3 zenith = vec3(0.20, 0.42, 0.75);
     vec3 day = mix(horizon, zenith, pow(h, 0.6));
     vec3 space = vec3(0.005, 0.006, 0.012);
-    gl_FragColor = vec4(mix(day, space, uSpace), 1.0);
+    vec3 col = mix(day, space, uSpace);
+    // the sun, matched to the direction of the shadow light
+    vec3 sunDir = normalize(vec3(0.47, 0.79, 0.31));
+    float s = max(dot(dir, sunDir), 0.0);
+    col += vec3(1.0, 0.95, 0.8) * (pow(s, 1500.0) * 4.0 + pow(s, 30.0) * 0.12) * (1.0 - uSpace * 0.3);
+    gl_FragColor = vec4(col, 1.0);
   }
 `;
 
@@ -78,6 +88,16 @@ export class Renderer {
         o.material.envMapIntensity = 0.2;
       }
     });
+
+    // mild bloom so the flame, sun glint, and hot engine bells glow
+    // instead of just being bright pixels
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight), 0.35, 0.7, 0.85
+    );
+    this.composer.addPass(this.bloomPass);
+    this.composer.addPass(new OutputPass());
 
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
@@ -902,6 +922,39 @@ export class Renderer {
     g.attributes.alpha.needsUpdate = true;
   }
 
+  // solid flame column that sits inside the particle plume, so the
+  // exhaust has a bright core instead of being all fuzz
+  makeFlameColumn(topR, bottomR, length) {
+    const geo = new THREE.CylinderGeometry(topR, bottomR, length, 16, 6, true);
+    geo.translate(0, -length / 2, 0); // hangs down from the nozzle
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      uniforms: { uT: { value: 0 }, uI: { value: 0 } },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: `
+        varying vec2 vUv;
+        uniform float uT;
+        uniform float uI;
+        void main() {
+          float a = pow(vUv.y, 1.7) * uI;
+          a *= 0.75 + 0.25 * sin(uT * 47.0 + vUv.y * 22.0);
+          vec3 col = mix(vec3(1.0, 0.5, 0.12), vec3(1.0, 0.97, 0.88), pow(vUv.y, 2.2));
+          gl_FragColor = vec4(col * 1.6, a);
+        }`,
+    });
+    const m = new THREE.Mesh(geo, mat);
+    m.frustumCulled = false;
+    return m;
+  }
+
   // ---- rocket assembly ----
 
   buildRocket(design) {
@@ -971,6 +1024,31 @@ export class Renderer {
       if (o.isMesh && o.userData.isNozzle) this.glowMats.push(o.material);
     });
 
+    // one flame core per nozzle
+    this.flameCols = [];
+    if (design.engine) {
+      const cluster = this.emitters.length > 1;
+      for (const e of this.emitters) {
+        const col = cluster
+          ? this.makeFlameColumn(0.1, 0.3, 3.6)
+          : this.makeFlameColumn(0.16, 0.48, 5);
+        col.position.copy(e);
+        col.userData.kind = 'main';
+        this.rocket.add(col);
+        this.flameCols.push(col);
+      }
+    }
+    if (this.boosterEmitters) {
+      for (const e of this.boosterEmitters) {
+        const col = this.makeFlameColumn(0.07, 0.22, 2.6);
+        col.position.copy(e);
+        col.position.y += 0.08;
+        col.userData.kind = 'booster';
+        this.rocket.add(col);
+        this.flameCols.push(col);
+      }
+    }
+
     this.rocketHeight = y;
     this.rocket.position.set(0, this.padTop, 0);
     this.rocket.rotation.set(0, 0, 0);
@@ -984,6 +1062,12 @@ export class Renderer {
       disposeGroup(g);
     }
     this.rocketParts = [];
+    for (const col of this.flameCols || []) {
+      this.rocket.remove(col);
+      col.geometry.dispose();
+      col.material.dispose();
+    }
+    this.flameCols = [];
     this.emitters = [];
     this.boosterGroup = null;
     this.boosterEmitters = null;
@@ -1137,7 +1221,7 @@ export class Renderer {
     );
     this.moonMat.opacity = 0.35 + space * 0.6;
 
-    this.renderer.render(this.scene, this.camera);
+    this.composer.render();
   }
 
   updateFlightVisuals(dt, flight) {
@@ -1156,6 +1240,19 @@ export class Renderer {
     const frac = flight.thrustFrac();
     // the bells heat up and glow while there is thrust
     for (const m of this.glowMats || []) m.emissiveIntensity = frac * 1.5;
+
+    // flame cores flicker under each burning nozzle
+    this.flameTime = (this.flameTime || 0) + dt;
+    const mainOn = !flight.done && flight.fuel > 0 && !flight.engineCut && !flight.tumbling ? 1 : 0;
+    const boostOn = !flight.done && flight.boostersAttached && flight.boosterFuel > 0 && !flight.tumbling ? 1 : 0;
+    for (const col of this.flameCols || []) {
+      const on = col.userData.kind === 'booster' ? boostOn : mainOn;
+      col.visible = on > 0;
+      col.material.uniforms.uT.value = this.flameTime;
+      col.material.uniforms.uI.value = on * (0.8 + Math.random() * 0.25);
+      col.scale.y = on ? 0.85 + Math.random() * 0.3 : 1;
+    }
+
     const st = this.flameStyle || FLAME_STYLES['engine-basic'];
     if (frac > 0 && flight.fuel > 0) {
       for (const e of this.emitters) {
@@ -1242,5 +1339,6 @@ export class Renderer {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.composer.setSize(window.innerWidth, window.innerHeight);
   }
 }
