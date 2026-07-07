@@ -257,6 +257,23 @@ export class Renderer {
     g.fillStyle = 'rgba(70,66,56,0.45)';
     g.fillRect(1014, 1014, 20, 20);
 
+    // crawlerway: twin gravel tracks from the assembly building to
+    // the pad (the building sits at canvas 947,916)
+    g.strokeStyle = 'rgba(200,194,176,0.7)';
+    g.lineWidth = 6;
+    for (const off of [-5, 5]) {
+      g.beginPath();
+      g.moveTo(1026 + off, 1030);
+      g.lineTo(940 + off, 902);
+      g.stroke();
+    }
+    g.strokeStyle = 'rgba(120,112,95,0.5)';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(1026, 1030);
+    g.lineTo(940, 902);
+    g.stroke();
+
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
@@ -285,37 +302,177 @@ export class Renderer {
     this.ground.receiveShadow = true;
     this.scene.add(this.ground);
 
-    // concrete pad with scorch mark
-    const pad = new THREE.Group();
-    const slab = new THREE.Mesh(
-      new THREE.CylinderGeometry(3, 3.4, 0.3, 32),
-      new THREE.MeshStandardMaterial({ color: 0x9a9a98, roughness: 0.9 })
-    );
-    slab.position.y = 0.15;
-    slab.receiveShadow = true;
-    slab.castShadow = true;
-    const scorch = new THREE.Mesh(
-      new THREE.CircleGeometry(1.1, 24),
-      new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 1 })
-    );
-    scorch.rotation.x = -Math.PI / 2;
-    scorch.position.y = 0.301;
-    scorch.receiveShadow = true;
-    pad.add(slab, scorch);
+    this.buildLaunchComplex();
+  }
 
-    // simple gantry tower off to the side
-    const towerMat = new THREE.MeshStandardMaterial({ color: 0xb33a2b, metalness: 0.5, roughness: 0.6 });
-    const tower = new THREE.Mesh(new THREE.BoxGeometry(0.35, 7, 0.35), towerMat);
-    tower.position.set(-2.2, 3.5, 0);
-    tower.castShadow = true;
-    pad.add(tower);
-    for (let y = 1.5; y < 7; y += 1.5) {
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 0.12), towerMat);
-      arm.position.set(-1.55, y, 0);
-      arm.castShadow = true;
-      pad.add(arm);
+  makeConcreteTexture() {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 256;
+    const g = c.getContext('2d');
+    g.fillStyle = '#96958f';
+    g.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 600; i++) {
+      g.fillStyle = 'rgba(' + (Math.random() < 0.5 ? '60,58,52' : '210,208,200') + ',' + (Math.random() * 0.06).toFixed(3) + ')';
+      g.fillRect(Math.random() * 256, Math.random() * 256, 3, 3);
     }
-    // soft dark blob under the rocket so it feels planted on the pad
+    // expansion joints
+    g.strokeStyle = 'rgba(50,48,44,0.5)';
+    g.lineWidth = 2;
+    for (let p = 0; p <= 256; p += 64) {
+      g.beginPath(); g.moveTo(p, 0); g.lineTo(p, 256); g.stroke();
+      g.beginPath(); g.moveTo(0, p); g.lineTo(256, p); g.stroke();
+    }
+    // weathering stains
+    for (let i = 0; i < 14; i++) {
+      g.fillStyle = 'rgba(70,64,54,' + (0.04 + Math.random() * 0.07).toFixed(3) + ')';
+      g.beginPath();
+      g.ellipse(Math.random() * 256, Math.random() * 256, 12 + Math.random() * 40, 8 + Math.random() * 24, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  }
+
+  buildLaunchComplex() {
+    // raised concrete platform with a flame trench through the middle,
+    // like the real shuttle pads. the rocket sits on a launch table
+    // that bridges the trench
+    const complex = new THREE.Group();
+    const concrete = new THREE.MeshStandardMaterial({ map: this.makeConcreteTexture(), roughness: 0.95 });
+    const darkConcrete = new THREE.MeshStandardMaterial({ color: 0x45413c, roughness: 1 });
+    const steel = new THREE.MeshStandardMaterial({ color: 0x8c3b2e, metalness: 0.5, roughness: 0.6 });
+    const gray = new THREE.MeshStandardMaterial({ color: 0x9aa0a4, metalness: 0.6, roughness: 0.5 });
+
+    // two platform halves leave a trench running along x
+    for (const side of [-1, 1]) {
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(26, 2.4, 7), concrete);
+      slab.position.set(0, 1.2, side * 5.5);
+      slab.castShadow = true;
+      slab.receiveShadow = true;
+      complex.add(slab);
+    }
+    // sloped ramp up the back side
+    const ramp = new THREE.Mesh(new THREE.BoxGeometry(10, 0.6, 18), concrete);
+    ramp.rotation.z = 0.19;
+    ramp.position.set(-17.5, 1.15, 0);
+    ramp.receiveShadow = true;
+    complex.add(ramp);
+
+    // trench floor and the wedge flame deflector under the engine
+    const trenchFloor = new THREE.Mesh(new THREE.BoxGeometry(26, 0.3, 4), darkConcrete);
+    trenchFloor.position.y = 0.15;
+    const deflector = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.2, 3.9), darkConcrete);
+    deflector.rotation.z = Math.PI / 4;
+    deflector.position.set(0, 0.35, 0);
+    complex.add(trenchFloor, deflector);
+
+    // launch table bridging the trench, open in the middle for exhaust
+    for (const side of [-1, 1]) {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(7, 1.1, 2.2), gray);
+      beam.position.set(0, 2.95, side * 2.0);
+      beam.castShadow = true;
+      beam.receiveShadow = true;
+      const beam2 = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.1, 1.8), gray);
+      beam2.position.set(side * 2.4, 2.95, 0);
+      beam2.castShadow = true;
+      complex.add(beam, beam2);
+    }
+    // hold-down clamps around the rocket base
+    for (const [cx, cz] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]]) {
+      const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.8, 0.28), darkConcrete);
+      clamp.position.set(cx, 3.85, cz);
+      clamp.castShadow = true;
+      complex.add(clamp);
+    }
+
+    // fixed service structure: lattice tower with platforms, a crane,
+    // a lightning mast, and swing arms that pull back at ignition
+    const fss = new THREE.Group();
+    const TW = 2.4;
+    const H = 14;
+    for (const [px, pz] of [[-TW / 2, -TW / 2], [TW / 2, -TW / 2], [-TW / 2, TW / 2], [TW / 2, TW / 2]]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.26, H, 0.26), steel);
+      post.position.set(px, H / 2, pz);
+      post.castShadow = true;
+      fss.add(post);
+    }
+    for (let ly = 1.6; ly < H; ly += 1.75) {
+      for (const side of [-1, 1]) {
+        const bx = new THREE.Mesh(new THREE.BoxGeometry(TW, 0.12, 0.12), steel);
+        bx.position.set(0, ly, side * TW / 2);
+        const bz = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, TW), steel);
+        bz.position.set(side * TW / 2, ly, 0);
+        // diagonal brace
+        const dg = new THREE.Mesh(new THREE.BoxGeometry(TW * 1.35, 0.09, 0.09), steel);
+        dg.position.set(0, ly + 0.85, side * TW / 2);
+        dg.rotation.z = side * 0.62;
+        fss.add(bx, bz, dg);
+      }
+    }
+    // work platforms
+    for (const ly of [4.2, 8.4, 12.4]) {
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(TW + 0.7, 0.12, TW + 0.7), gray);
+      deck.position.y = ly;
+      deck.castShadow = true;
+      fss.add(deck);
+    }
+    // hammerhead crane and lightning mast on top
+    const craneBase = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.2, 0.3), steel);
+    craneBase.position.y = H + 1.1;
+    const craneArm = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.32, 0.5), steel);
+    craneArm.position.set(1.4, H + 2.1, 0);
+    craneArm.castShadow = true;
+    const mast = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.1, 5.5, 8),
+      new THREE.MeshStandardMaterial({ color: 0xe8e8e6, metalness: 0.4, roughness: 0.5 })
+    );
+    mast.position.y = H + 4.9;
+    fss.add(craneBase, craneArm, mast);
+
+    // swing arms, stored so the renderer can retract them at ignition
+    this.swingArms = [];
+    for (const ay of [2.7, 5.4]) {
+      const pivot = new THREE.Group();
+      pivot.position.set(TW / 2, ay, TW / 2);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.28, 0.62), steel);
+      arm.position.x = 1.55;
+      arm.castShadow = true;
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.7), gray);
+      plate.position.x = 3.05;
+      pivot.add(arm, plate);
+      pivot.rotation.y = -Math.PI / 4; // docked against the rocket
+      pivot.userData.docked = -Math.PI / 4;
+      pivot.userData.retracted = -Math.PI / 4 + 1.9;
+      this.swingArms.push(pivot);
+      fss.add(pivot);
+    }
+    fss.position.set(-3.6, 2.4, -3.6);
+    complex.add(fss);
+
+    // four lightning masts around the platform corners
+    for (const [mx, mz] of [[-16, -12], [16, -12], [-16, 12], [16, 12]]) {
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.16, 20, 8),
+        new THREE.MeshStandardMaterial({ color: 0xdadad6, metalness: 0.4, roughness: 0.5 })
+      );
+      pole.position.set(mx, 10, mz);
+      const tip = new THREE.Mesh(
+        new THREE.SphereGeometry(0.16, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0xb03030, emissive: 0xb03030, emissiveIntensity: 0.7 })
+      );
+      tip.position.set(mx, 20.1, mz);
+      complex.add(pole, tip);
+    }
+
+    // warm flicker light on the pad while the engine burns
+    this.padLight = new THREE.PointLight(0xffb060, 0, 45, 2);
+    this.padLight.position.set(0, 2.6, 0);
+    complex.add(this.padLight);
+
+    // soft dark blob on the launch table so the rocket feels planted
     const sc = document.createElement('canvas');
     sc.width = 128; sc.height = 128;
     const sg = sc.getContext('2d');
@@ -325,7 +482,7 @@ export class Renderer {
     sg.fillStyle = blobGrad;
     sg.fillRect(0, 0, 128, 128);
     const blob = new THREE.Mesh(
-      new THREE.PlaneGeometry(4.5, 4.5),
+      new THREE.PlaneGeometry(4, 4),
       new THREE.MeshBasicMaterial({
         map: new THREE.CanvasTexture(sc),
         transparent: true,
@@ -333,12 +490,44 @@ export class Renderer {
       })
     );
     blob.rotation.x = -Math.PI / 2;
-    blob.position.y = 0.32;
-    pad.add(blob);
+    blob.position.y = 3.52;
+    complex.add(blob);
 
-    this.pad = pad;
-    this.scene.add(pad);
-    this.padTop = 0.3;
+    this.pad = complex;
+    this.scene.add(complex);
+    this.padTop = 3.5;
+  }
+
+  makeVabMaterials() {
+    // big hangar wall with a giant door outline and a flag-ish mark
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 256;
+    const g = c.getContext('2d');
+    g.fillStyle = '#d2d4d6';
+    g.fillRect(0, 0, 256, 256);
+    // dark corner columns
+    g.fillStyle = '#3c4a63';
+    g.fillRect(0, 0, 16, 256);
+    g.fillRect(240, 0, 16, 256);
+    // giant vehicle door with vertical segments
+    g.fillStyle = '#82868c';
+    g.fillRect(84, 76, 88, 180);
+    g.strokeStyle = 'rgba(50,52,58,0.6)';
+    g.lineWidth = 2;
+    for (let x = 84; x <= 172; x += 11) {
+      g.beginPath(); g.moveTo(x, 76); g.lineTo(x, 256); g.stroke();
+    }
+    // abstract flag block
+    g.fillStyle = '#b23a35';
+    for (let i = 0; i < 4; i++) g.fillRect(28, 30 + i * 8, 40, 4);
+    g.fillStyle = '#2b3f66';
+    g.fillRect(28, 30, 14, 16);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const wall = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 });
+    const plain = new THREE.MeshStandardMaterial({ color: 0xc9cccf, roughness: 0.85 });
+    // box faces: +x, -x, +y, -y, +z, -z ; door on +z and +x
+    return [wall, plain, plain, plain, wall, plain];
   }
 
   setupScenery() {
@@ -419,31 +608,67 @@ export class Renderer {
     antenna.position.set(26, 4.7, 22);
     scenery.add(bunker, antenna);
 
-    // floodlight towers around the pad
+    // floodlight towers well outside the platform
     const lampMat = new THREE.MeshStandardMaterial({
       color: 0xfff7d0, emissive: 0xfff2b8, emissiveIntensity: 0.8,
     });
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-      const pole = new THREE.Mesh(new THREE.BoxGeometry(0.35, 12, 0.35), darkSteel);
-      pole.position.set(Math.cos(a) * 13, 6, Math.sin(a) * 13);
+      const pole = new THREE.Mesh(new THREE.BoxGeometry(0.35, 14, 0.35), darkSteel);
+      pole.position.set(Math.cos(a) * 24, 7, Math.sin(a) * 24);
       pole.castShadow = true;
       const head = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.5), lampMat);
-      head.position.set(Math.cos(a) * 13, 12.2, Math.sin(a) * 13);
-      head.lookAt(0, 2, 0);
+      head.position.set(Math.cos(a) * 24, 14.2, Math.sin(a) * 24);
+      head.lookAt(0, 4, 0);
       scenery.add(pole, head);
     }
 
     // windsock
     const sockPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4, 6), darkSteel);
-    sockPole.position.set(12, 2, -9);
+    sockPole.position.set(19, 2, 18);
     const sock = new THREE.Mesh(
       new THREE.ConeGeometry(0.35, 1.6, 8, 1, true),
       new THREE.MeshStandardMaterial({ color: 0xd96a2a, roughness: 0.8, side: THREE.DoubleSide })
     );
     sock.rotation.z = Math.PI / 2;
-    sock.position.set(12.9, 3.9, -9);
+    sock.position.set(19.9, 3.9, 18);
     scenery.add(sockPole, sock);
+
+    // water deluge tower
+    const wtLegMat = new THREE.MeshStandardMaterial({ color: 0xd8d8d2, metalness: 0.4, roughness: 0.55 });
+    for (const [lx, lz] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 11, 0.3), wtLegMat);
+      leg.position.set(26 + lx, 5.5, -28 + lz);
+      leg.castShadow = true;
+      scenery.add(leg);
+    }
+    const bowl = new THREE.Mesh(new THREE.SphereGeometry(3.4, 20, 14), wtLegMat);
+    bowl.position.set(26, 12.6, -28);
+    bowl.castShadow = true;
+    const standpipe = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 11, 10), wtLegMat);
+    standpipe.position.set(26, 5.5, -28);
+    scenery.add(bowl, standpipe);
+
+    // giant assembly building on the horizon, at the end of the
+    // crawlerway painted into the ground texture
+    const vabY = this.hillHeight(-150, -210);
+    const vab = new THREE.Group();
+    const vabBody = new THREE.Mesh(new THREE.BoxGeometry(55, 46, 50), this.makeVabMaterials());
+    vabBody.position.y = 23;
+    const vabRoof = new THREE.Mesh(
+      new THREE.BoxGeometry(57, 1.4, 52),
+      new THREE.MeshStandardMaterial({ color: 0x6f747a, roughness: 0.8 })
+    );
+    vabRoof.position.y = 46.5;
+    const vabAnnex = new THREE.Mesh(
+      new THREE.BoxGeometry(20, 16, 24),
+      new THREE.MeshStandardMaterial({ color: 0xc4c7ca, roughness: 0.8 })
+    );
+    vabAnnex.position.set(37, 8, 6);
+    vab.add(vabBody, vabRoof, vabAnnex);
+    vab.position.set(-150, vabY - 1, -210);
+    vab.rotation.y = 0.62; // door faces down the crawlerway toward the pad
+    scenery.add(vab);
 
     // dirt road strips leading away from the pad apron
     const roadMat = new THREE.MeshStandardMaterial({ color: 0x4c4438, roughness: 1 });
@@ -848,16 +1073,19 @@ export class Renderer {
   setMode(mode) {
     this.mode = mode;
     this.controls.enabled = mode === 'build';
+    const focusY = this.padTop + Math.max(1.5, this.rocketHeight * 0.5);
     if (mode === 'build' || mode === 'title') {
       // coming back from a flight the camera can be stranded way up in
       // the sky, so drop it back near the pad
-      if (this.camera.position.length() > 30) {
-        this.camera.position.set(6, Math.max(3, this.rocketHeight * 0.6), 9);
+      if (this.camera.position.length() > 40) {
+        this.camera.position.set(7, this.padTop + Math.max(3, this.rocketHeight * 0.6), 11);
       }
-      this.camTarget.set(0, Math.max(2, this.rocketHeight * 0.5), 0);
+      this.camTarget.set(0, focusY, 0);
+      // dock the swing arms again for the next launch
+      for (const arm of this.swingArms || []) arm.rotation.y = arm.userData.docked;
     }
     if (mode === 'build') {
-      this.controls.target.set(0, Math.max(2, this.rocketHeight * 0.5), 0);
+      this.controls.target.set(0, focusY, 0);
     }
     if (mode === 'title') this.titleAngle = 0;
   }
@@ -881,14 +1109,14 @@ export class Renderer {
 
     if (this.mode === 'title') {
       this.titleAngle += dt * 0.12;
-      const r = 9;
+      const r = 13;
       const goal = new THREE.Vector3(
         Math.cos(this.titleAngle) * r,
-        3 + Math.sin(this.titleAngle * 0.4) * 0.8,
+        this.padTop + 3.2 + Math.sin(this.titleAngle * 0.4) * 0.8,
         Math.sin(this.titleAngle) * r
       );
       this.camera.position.lerp(goal, 0.03);
-      this.camera.lookAt(0, 2.2, 0);
+      this.camera.lookAt(0, this.padTop + 2.2, 0);
     } else if (this.mode === 'build') {
       this.controls.update();
     } else if (this.mode === 'launch' && flight) {
