@@ -244,8 +244,13 @@ function frame(now) {
 
   if (state === 'launch' && flight) {
     if (!flight.done) {
-      flight.step(dt);
-      handleFlightEvents();
+      // parachute drift is slow to watch, so time runs double until
+      // the rocket is close to the ground
+      const steps = flight.chuteDeployed && flight.alt > 40 ? 2 : 1;
+      for (let s = 0; s < steps && !flight.done; s++) {
+        flight.step(dt);
+        handleFlightEvents();
+      }
       ui.updateFlightReadout(flight);
       // altitude callouts on the way up
       for (const m of MILESTONES) {

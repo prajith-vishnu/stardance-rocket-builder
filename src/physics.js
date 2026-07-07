@@ -5,7 +5,7 @@ const GRAVITY = 9.8;
 const FUEL_MASS = 0.05;      // each fuel unit weighs a little
 const DRAG_SCALE = 0.00012;  // base drag coefficient scale
 const SPACE_ALT = 800;       // where "space" starts for the sky fade
-const CHUTE_DEPLOY_ALT = 350;
+const CHUTE_DEPLOY_ALT = 220;
 const SAFE_SPEED = 12;
 
 export const MISSIONS = {
