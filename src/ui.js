@@ -173,28 +173,28 @@ function drawFlightGraph(result) {
   const X = (t) => L + (t / tMax) * (W - L - R);
   const Y = (a) => H - B - (a / aMax) * (H - T - B);
 
-  // faint gridlines
-  g.strokeStyle = 'rgba(255,255,255,0.07)';
+  // faint gridlines, printed-chart style
+  g.strokeStyle = 'rgba(26,27,29,0.14)';
   g.lineWidth = 1;
   for (let i = 1; i <= 3; i++) {
     const y = T + ((H - T - B) / 4) * i;
     g.beginPath(); g.moveTo(L, y); g.lineTo(W - R, y); g.stroke();
   }
   // ground
-  g.strokeStyle = 'rgba(255,255,255,0.25)';
+  g.strokeStyle = 'rgba(26,27,29,0.5)';
   g.beginPath(); g.moveTo(L, Y(0)); g.lineTo(W - R, Y(0)); g.stroke();
 
-  // altitude curve
-  g.strokeStyle = '#ffb000';
+  // altitude curve in red ink
+  g.strokeStyle = '#d8451f';
   g.lineWidth = 2;
   g.beginPath();
   track.forEach(([t, a], i) => (i ? g.lineTo(X(t), Y(a)) : g.moveTo(X(t), Y(a))));
   g.stroke();
 
   // event dots
-  const colors = { burnout: '#ff5348', cutoff: '#ff5348', sep: '#8fa0ba', chute: '#3fdc82' };
+  const colors = { burnout: '#1a1b1d', cutoff: '#1a1b1d', sep: '#6f6a5a', chute: '#2e7d4a' };
   for (const m of result.marks || []) {
-    g.fillStyle = colors[m.type] || '#ffffff';
+    g.fillStyle = colors[m.type] || '#1a1b1d';
     g.beginPath();
     g.arc(X(m.t), Y(Math.max(0, m.alt)), 3, 0, Math.PI * 2);
     g.fill();
@@ -203,7 +203,7 @@ function drawFlightGraph(result) {
   // apogee label
   let peak = track[0];
   for (const p of track) if (p[1] > peak[1]) peak = p;
-  g.fillStyle = '#d5dfec';
+  g.fillStyle = '#1a1b1d';
   g.font = '10px ui-monospace, Menlo, Consolas, monospace';
   const label = Math.round(peak[1]) + ' m';
   const lx = Math.min(Math.max(X(peak[0]) - 12, L), W - R - g.measureText(label).width);
