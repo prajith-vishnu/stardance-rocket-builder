@@ -89,6 +89,12 @@ export class Renderer {
       }
     });
 
+    // watch the framerate for the first few seconds; if this machine
+    // is struggling, drop the expensive effects once and move on
+    this.frameCount = 0;
+    this.slowFrames = 0;
+    this.qualityReduced = false;
+
     // mild bloom so the flame, sun glint, and hot engine bells glow
     // instead of just being bright pixels
     this.composer = new EffectComposer(this.renderer);
@@ -1175,7 +1181,24 @@ export class Renderer {
     if (mode === 'title') this.titleAngle = 0;
   }
 
+  reduceQuality() {
+    this.qualityReduced = true;
+    this.bloomPass.enabled = false;
+    this.renderer.setPixelRatio(1);
+    this.sun.shadow.mapSize.set(1024, 1024);
+    if (this.sun.shadow.map) {
+      this.sun.shadow.map.dispose();
+      this.sun.shadow.map = null;
+    }
+    this.composer.setSize(window.innerWidth, window.innerHeight);
+  }
+
   update(dt, flight) {
+    if (!this.qualityReduced && this.frameCount < 240) {
+      this.frameCount++;
+      if (dt > 0.04) this.slowFrames++;
+      if (this.frameCount === 240 && this.slowFrames > 120) this.reduceQuality();
+    }
     // sky and stars follow altitude
     const alt = flight ? flight.alt : 0;
     const space = THREE.MathUtils.clamp(alt / SPACE_ALT, 0, 1);
@@ -1237,8 +1260,9 @@ export class Renderer {
     this.rocket.rotation.z += (Math.cos(dir) * flight.tilt - this.rocket.rotation.z) * k;
     this.rocket.rotation.x += (Math.sin(dir) * flight.tilt - this.rocket.rotation.x) * k;
 
-    // engine exhaust while burning, flavored per engine tier
-    const frac = flight.thrustFrac();
+    // engine exhaust while burning, flavored per engine tier. a landed
+    // rocket can still have fuel in the tank, so gate on done too
+    const frac = flight.done ? 0 : flight.thrustFrac();
     // the bells heat up and glow while there is thrust
     for (const m of this.glowMats || []) m.emissiveIntensity = frac * 1.5;
 
