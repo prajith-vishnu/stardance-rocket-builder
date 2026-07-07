@@ -261,8 +261,10 @@ function buildNoseStandard() {
     const t = i / 16;
     pts.push(new THREE.Vector2(R * Math.cos(t * Math.PI * 0.5), 1.2 * Math.sin(t * Math.PI * 0.5)));
   }
-  const mat = new THREE.MeshStandardMaterial({
-    map: getNoseTexture(), metalness: 0.25, roughness: 0.4,
+  // clearcoat gives the paint that waxy aerospace-gloss look
+  const mat = new THREE.MeshPhysicalMaterial({
+    map: getNoseTexture(), metalness: 0.2, roughness: 0.42,
+    clearcoat: 0.55, clearcoatRoughness: 0.25,
   });
   const mesh = new THREE.Mesh(new THREE.LatheGeometry(pts, 48), mat);
   g.add(mesh);
@@ -301,7 +303,12 @@ function buildTank(height) {
   ringTop.position.y = height - 0.02;
   const ringBot = ringTop.clone();
   ringBot.position.y = 0.02;
-  g.add(body, ringTop, ringBot);
+  // cable raceway conduit running up the hull between the stripes
+  const raceway = new THREE.Mesh(new THREE.BoxGeometry(0.07, height * 0.94, 0.12), darkMetal());
+  const ra = Math.PI / 4;
+  raceway.position.set(Math.cos(ra) * (R + 0.02), height / 2, Math.sin(ra) * (R + 0.02));
+  raceway.rotation.y = -ra;
+  g.add(body, ringTop, ringBot, raceway);
   g.userData.height = height;
   return g;
 }
