@@ -54,7 +54,8 @@ export function renderPalette(save, design, onAdd) {
       btn.className = 'part-btn';
       const owned = isUnlocked(save, id);
       const active =
-        design.nose === id || design.engine === id || design.fins === id ||
+        design.nose === id || design.fins === id ||
+        design.stack.includes(id) ||
         (id === 'booster-pair' && design.boosters) ||
         (id === 'parachute' && design.parachute);
       if (active) btn.classList.add('active');
@@ -77,11 +78,13 @@ export function renderStack(design, onRemove) {
   list.innerHTML = '';
   const rows = [];
   if (design.nose) rows.push({ key: 'nose', label: PARTS[design.nose].name });
-  design.tanks.forEach((t, i) => rows.push({ key: 'tank:' + i, label: PARTS[t].name }));
-  if (design.engine) rows.push({ key: 'engine', label: PARTS[design.engine].name });
+  if (design.parachute) rows.push({ key: 'parachute', label: PARTS['parachute'].name });
+  // the stack is stored bottom-up, the list reads top-down
+  for (let i = design.stack.length - 1; i >= 0; i--) {
+    rows.push({ key: 'stack:' + i, label: PARTS[design.stack[i]].name });
+  }
   if (design.fins) rows.push({ key: 'fins', label: PARTS[design.fins].name });
   if (design.boosters) rows.push({ key: 'boosters', label: PARTS['booster-pair'].name });
-  if (design.parachute) rows.push({ key: 'parachute', label: PARTS['parachute'].name });
 
   if (rows.length === 0) {
     const p = document.createElement('p');
@@ -112,6 +115,7 @@ export function renderStats(design, wind) {
   twrEl.className = s.twr > 1 ? 'stat-good' : 'stat-bad';
 
   $('stat-burn').textContent = s.burnTime > 0 ? s.burnTime.toFixed(1) + ' s' : '-';
+  $('stat-stages').textContent = String(s.stageCount);
 
   const stEl = $('stat-stability');
   if (s.stabilityRating >= 2) { stEl.textContent = 'Stable'; stEl.className = 'stat-good'; }

@@ -23,65 +23,97 @@ export const MISSIONS = {
   },
 };
 
-// design = { nose, tanks: [], engine, fins, boosters, parachute }
-export function computeStats(design) {
-  let dryMass = 0, fuel = 0, thrust = 0, burn = 0, stability = 0, drag = 8;
+// design = { stack: [], nose, fins, boosters, parachute }
+// the stack is an ordered bottom-up list of engines, tanks, and at
+// most one decoupler. stage 0 is the bottom stage and burns first
+export function parseStages(design) {
+  const segs = [[]];
+  for (const id of design.stack) {
+    if (id === 'decoupler') segs.push([]);
+    else segs[segs.length - 1].push(id);
+  }
+  return segs.map((ids) => {
+    const s = { engine: null, tanks: 0, dry: 0, fuel: 0, thrust: 0, burn: 0 };
+    for (const id of ids) {
+      const p = PARTS[id];
+      s.dry += p.mass;
+      if (id.startsWith('engine')) { s.engine = id; s.thrust = p.thrust; s.burn = p.burn; }
+      if (id.startsWith('tank')) { s.tanks += 1; s.fuel += p.fuel; }
+    }
+    return s;
+  });
+}
 
+export function computeStats(design) {
+  const stages = parseStages(design);
+  let dryMass = 0, fuel = 0, burnTime = 0, tanks = 0;
+  for (const s of stages) {
+    dryMass += s.dry;
+    fuel += s.fuel;
+    tanks += s.tanks;
+    if (s.burn > 0) burnTime += s.fuel / s.burn;
+  }
+  if (design.stack.includes('decoupler')) dryMass += PARTS['decoupler'].mass;
+
+  let drag = 8;
+  let stability = 0;
   if (design.nose) {
     dryMass += PARTS[design.nose].mass;
     drag = PARTS[design.nose].drag;
   } else {
     drag = 14; // flat top is terrible aerodynamically
   }
-  for (const t of design.tanks) {
-    dryMass += PARTS[t].mass;
-    fuel += PARTS[t].fuel;
-  }
-  if (design.engine) {
-    dryMass += PARTS[design.engine].mass;
-    thrust += PARTS[design.engine].thrust;
-    burn += PARTS[design.engine].burn;
-  }
   if (design.fins) {
     dryMass += PARTS[design.fins].mass;
     stability += PARTS[design.fins].stability;
   }
-  if (design.boosters) {
-    dryMass += PARTS['booster-pair'].mass;
-  }
-  if (design.parachute) {
-    dryMass += PARTS['parachute'].mass;
-  }
+  if (design.boosters) dryMass += PARTS['booster-pair'].mass;
+  if (design.parachute) dryMass += PARTS['parachute'].mass;
 
   const mass = dryMass + fuel * FUEL_MASS;
-  // taller stacks need more fin authority
-  const neededStability = 1 + design.tanks.length;
+  // taller stacks need more fin authority; a second stage adds height
+  const neededStability = 1 + tanks + (stages.length > 1 ? 1 : 0);
   const stabilityRating = stability - neededStability; // >= 0 is stable
 
-  // TWR at liftoff, counting boosters
-  let liftThrust = thrust;
+  // TWR at liftoff: stage one plus boosters
+  let liftThrust = stages[0].thrust;
   if (design.boosters) liftThrust += PARTS['booster-pair'].thrust;
   const twr = mass > 0 ? liftThrust / (mass * GRAVITY) : 0;
-  const burnTime = burn > 0 ? fuel / burn : 0;
 
   return {
     mass: Math.round(mass),
     dryMass,
     fuel,
     thrust: liftThrust,
-    burn,
     twr,
     burnTime,
     stability,
     neededStability,
     stabilityRating,
     drag,
+    stages,
+    stageCount: stages.length,
   };
 }
 
 export function validateDesign(design) {
-  if (!design.engine) return 'No engine attached.';
-  if (design.tanks.length === 0) return 'No fuel tanks attached.';
+  const stages = parseStages(design);
+  if (stages.length > 2) return 'Only two stages are supported.';
+  for (let i = 0; i < stages.length; i++) {
+    const label = stages.length > 1 ? 'Stage ' + (i + 1) : 'The rocket';
+    if (!stages[i].engine) return label + ' needs an engine.';
+    if (stages[i].tanks === 0) return label + ' needs a fuel tank.';
+  }
+  // engines have to sit at the bottom of their stage, one per stage
+  const segs = [[]];
+  for (const id of design.stack) {
+    if (id === 'decoupler') segs.push([]);
+    else segs[segs.length - 1].push(id);
+  }
+  for (const seg of segs) {
+    if (seg.filter((id) => id.startsWith('engine')).length > 1) return 'One engine per stage.';
+    if (seg.length && !seg[0].startsWith('engine')) return 'Engines go at the bottom of a stage.';
+  }
   const s = computeStats(design);
   if (s.twr <= 1.0) return 'Thrust-to-weight is below 1. It will not lift off.';
   return null;
@@ -100,8 +132,14 @@ export class Flight {
 
     this.alt = 0;
     this.vel = 0;
-    this.fuel = this.stats.fuel;
-    this.fuelStart = this.stats.fuel;
+    // fuel tracks the stage that is currently burning
+    this.stages = this.stats.stages;
+    this.stage = 0;
+    this.stageTimer = 0;
+    this.droppedMass = 0;
+    this.fuel = this.stages[0].fuel;
+    this.fuelStart = this.stages[0].fuel;
+    this.fuelBurned = 0;
 
     this.boosterFuel = design.boosters ? PARTS['booster-pair'].fuel : 0;
     this.boostersAttached = !!design.boosters;
@@ -131,7 +169,8 @@ export class Flight {
   // spacebar toggles the main engine: cut it early to save fuel, or
   // relight it on the way down and try to land on the plume
   toggleEngine() {
-    if (this.done || this.held || this.fuel <= 0 || !this.design.engine) return false;
+    if (this.done || this.held || this.fuel <= 0 || !this.stages[this.stage].engine) return false;
+    if (this.stageTimer > 0) return false; // mid-staging, hands off
     if (!this.engineCut) {
       this.engineCut = true;
       this.graphMarks.push({ t: this.time, alt: this.alt, type: 'cutoff' });
@@ -152,13 +191,17 @@ export class Flight {
 
   currentThrust() {
     let t = 0;
-    if (this.fuel > 0 && this.design.engine && !this.engineCut) t += PARTS[this.design.engine].thrust;
+    const st = this.stages[this.stage];
+    if (this.fuel > 0 && st.thrust > 0 && !this.engineCut && this.stageTimer <= 0) t += st.thrust;
     if (this.boostersAttached && this.boosterFuel > 0) t += PARTS['booster-pair'].thrust;
     return t;
   }
 
   currentMass() {
-    let m = this.stats.dryMass + this.fuel * FUEL_MASS;
+    // fuel waiting in upper stages still counts until they fire
+    let pending = 0;
+    for (let i = this.stage + 1; i < this.stages.length; i++) pending += this.stages[i].fuel;
+    let m = this.stats.dryMass - this.droppedMass + (this.fuel + pending) * FUEL_MASS;
     // booster casings drop off at separation
     if (this.design.boosters && !this.boostersAttached) m -= PARTS['booster-pair'].mass;
     return Math.max(m, 1);
@@ -169,12 +212,38 @@ export class Flight {
     this.time += dt;
     this.events.length = 0;
 
-    // burn fuel
-    if (this.fuel > 0 && this.design.engine && !this.engineCut) {
-      this.fuel = Math.max(0, this.fuel - PARTS[this.design.engine].burn * dt);
-      if (this.fuel === 0) {
-        this.events.push('burnout');
-        this.graphMarks.push({ t: this.time, alt: this.alt, type: 'burnout' });
+    // stage-two ignition happens a beat after separation
+    if (this.stageTimer > 0) {
+      this.stageTimer -= dt;
+      if (this.stageTimer <= 0) this.events.push('stage2');
+    }
+
+    // burn fuel in the stage that is currently lit
+    const st = this.stages[this.stage];
+    if (this.fuel > 0 && st.burn > 0 && !this.engineCut && this.stageTimer <= 0) {
+      const burn = Math.min(this.fuel, st.burn * dt);
+      this.fuel -= burn;
+      this.fuelBurned += burn;
+      if (this.fuel <= 0) {
+        this.fuel = 0;
+        if (this.stage < this.stages.length - 1) {
+          // drop the empty stage and light the next one after a beat
+          this.droppedMass += st.dry + PARTS['decoupler'].mass;
+          if (this.boostersAttached) {
+            this.boostersAttached = false;
+            this.events.push('separation');
+          }
+          this.stage += 1;
+          this.fuel = this.stages[this.stage].fuel;
+          this.fuelStart = this.stages[this.stage].fuel;
+          this.engineCut = false;
+          this.stageTimer = 0.8;
+          this.events.push('stage-sep');
+          this.graphMarks.push({ t: this.time, alt: this.alt, type: 'sep' });
+        } else {
+          this.events.push('burnout');
+          this.graphMarks.push({ t: this.time, alt: this.alt, type: 'burnout' });
+        }
       }
     }
     if (this.boostersAttached && this.boosterFuel > 0) {
@@ -263,7 +332,7 @@ export class Flight {
   }
 
   buildResult(landingSpeed, safe) {
-    const fuelUsed = Math.max(1, Math.round(this.fuelStart - this.fuel + (this.design.boosters ? PARTS['booster-pair'].fuel - this.boosterFuel : 0)));
+    const fuelUsed = Math.max(1, Math.round(this.fuelBurned + (this.design.boosters ? PARTS['booster-pair'].fuel - this.boosterFuel : 0)));
     const maxAlt = Math.round(this.maxAlt);
     return {
       maxAlt, fuelUsed, landingSpeed: Math.round(landingSpeed), safe,
@@ -337,6 +406,11 @@ export const ACHIEVEMENTS = [
     id: 'hoverslam', name: 'Hoverslam',
     desc: 'relight the engine and land with no parachute',
     test: (r) => r.safe && r.relit && !r.chuteUsed && r.maxAlt >= 50,
+  },
+  {
+    id: 'proper-rocket', name: 'Proper Rocket',
+    desc: 'fly a two-stage rocket past 800 m',
+    test: (r, f) => f.stages.length > 1 && r.maxAlt >= 800,
   },
 ];
 

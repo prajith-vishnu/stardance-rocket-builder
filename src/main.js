@@ -20,12 +20,11 @@ let beatBest = false;
 let countdown = 0;
 let countdownTick = 0;
 
-// current rocket design, seeded with the free starter parts so the
-// first visit to the pad is not an empty scene
+// current rocket design. the stack is an ordered bottom-up list of
+// engines, tanks, and at most one decoupler
 const design = {
+  stack: ['engine-basic', 'tank-small'],
   nose: 'nose-standard',
-  tanks: ['tank-small'],
-  engine: 'engine-basic',
   fins: 'fins-basic',
   boosters: false,
   parachute: false,
@@ -33,9 +32,8 @@ const design = {
 
 // a decent-looking default so the title screen has something on the pad
 const titleDesign = {
+  stack: ['engine-basic', 'tank-small', 'tank-small'],
   nose: 'nose-standard',
-  tanks: ['tank-small', 'tank-small'],
-  engine: 'engine-basic',
   fins: 'fins-basic',
   boosters: false,
   parachute: false,
@@ -43,14 +41,31 @@ const titleDesign = {
 
 // ---- design edits ----
 
+// index where the top stage begins (just past the decoupler)
+function topStageStart(stack) {
+  return stack.lastIndexOf('decoupler') + 1;
+}
+
 function addPart(id) {
+  const stack = design.stack;
   if (id.startsWith('nose')) {
     design.nose = design.nose === id ? null : id; // click again to remove
   } else if (id.startsWith('tank')) {
-    if (design.tanks.length >= 4) return; // keep stacks sane
-    design.tanks.push(id);
+    if (stack.filter((p) => p.startsWith('tank')).length >= 5) return;
+    stack.push(id);
   } else if (id.startsWith('engine')) {
-    design.engine = design.engine === id ? null : id;
+    const base = topStageStart(stack);
+    if (stack.length === base) stack.push(id); // stage is empty
+    else if (stack[base].startsWith('engine')) stack[base] = id; // swap engines
+    else stack.splice(base, 0, id); // stage was missing its engine
+  } else if (id === 'decoupler') {
+    // only one, and only on top of a working stage
+    const seg = stack.slice(topStageStart(stack));
+    const ok = !stack.includes('decoupler') &&
+      seg.some((p) => p.startsWith('engine')) &&
+      seg.some((p) => p.startsWith('tank'));
+    if (!ok) return;
+    stack.push(id);
   } else if (id.startsWith('fins')) {
     design.fins = design.fins === id ? null : id;
   } else if (id === 'booster-pair') {
@@ -63,21 +78,19 @@ function addPart(id) {
 
 function removePart(key) {
   if (key === 'nose') design.nose = null;
-  else if (key === 'engine') design.engine = null;
   else if (key === 'fins') design.fins = null;
   else if (key === 'boosters') design.boosters = false;
   else if (key === 'parachute') design.parachute = false;
-  else if (key.startsWith('tank:')) {
-    // removing a middle tank just closes the gap
-    design.tanks.splice(Number(key.split(':')[1]), 1);
+  else if (key.startsWith('stack:')) {
+    // removing a middle part just closes the gap
+    design.stack.splice(Number(key.split(':')[1]), 1);
   }
   refreshBuild();
 }
 
 function clearDesign() {
+  design.stack = [];
   design.nose = null;
-  design.tanks = [];
-  design.engine = null;
   design.fins = null;
   design.boosters = false;
   design.parachute = false;
@@ -184,6 +197,13 @@ function handleFlightEvents() {
       ui.flashEvent('Booster separation');
       renderer.separateBoosters();
       audio.separation();
+    } else if (ev === 'stage-sep') {
+      ui.flashEvent('Stage separation');
+      renderer.separateStage(flight.vel / 4);
+      audio.separation();
+    } else if (ev === 'stage2') {
+      ui.flashEvent('Stage 2 ignition');
+      audio.relight();
     } else if (ev === 'chute') {
       ui.flashEvent('Parachute deployed');
       renderer.deployParachute();

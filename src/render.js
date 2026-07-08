@@ -70,7 +70,8 @@ export class Renderer {
     this.boosterGroup = null;
     this.detachedBoosters = [];
     this.chuteMesh = null;
-    this.emitters = []; // local-space nozzle positions on the rocket
+    this.stageParts = [[], []]; // meshes per stage, for separation
+    this.stageEmitters = [[], []]; // nozzle positions per stage
 
     this.setupLights();
     this.setupSky();
@@ -967,29 +968,37 @@ export class Renderer {
   buildRocket(design) {
     this.clearRocket();
 
+    // walk the ordered stack bottom-up. everything before the
+    // decoupler is stage one and falls away at separation
     let y = 0;
-    // engine goes at the bottom
-    if (design.engine) {
-      const g = createPartMesh(design.engine);
+    let stageIdx = 0;
+    let finY = 0;
+    this.stageParts = [[], []];
+    this.stageEmitters = [[], []];
+    this.stageFlameStyles = [null, null];
+    this.glowMats = [];
+    for (const id of design.stack) {
+      const g = createPartMesh(id);
       g.position.y = y;
       this.rocket.add(g);
       this.rocketParts.push(g);
-      this.flameStyle = FLAME_STYLES[design.engine] || FLAME_STYLES['engine-basic'];
-      this.emitters.push(new THREE.Vector3(0, g.userData.nozzleY ?? 0, 0));
-      if (g.userData.cluster) {
-        // heavy engine gets two extra emitters for its side bells
-        this.emitters.push(new THREE.Vector3(0.16, 0.05, 0));
-        this.emitters.push(new THREE.Vector3(-0.16, 0.05, 0));
+      this.stageParts[stageIdx].push(g);
+      if (id.startsWith('engine')) {
+        this.stageFlameStyles[stageIdx] = id;
+        if (stageIdx === 0) finY = y + g.userData.height;
+        this.stageEmitters[stageIdx].push(new THREE.Vector3(0, y + (g.userData.nozzleY ?? 0), 0));
+        if (g.userData.cluster) {
+          // heavy engine gets two extra emitters for its side bells
+          this.stageEmitters[stageIdx].push(new THREE.Vector3(0.16, y + 0.05, 0));
+          this.stageEmitters[stageIdx].push(new THREE.Vector3(-0.16, y + 0.05, 0));
+        }
+        const si = stageIdx;
+        g.traverse((o) => {
+          if (o.isMesh && o.userData.isNozzle) this.glowMats.push({ mat: o.material, stage: si });
+        });
       }
       y += g.userData.height;
-    }
-    const finY = y; // fins sit at the bottom of the first tank
-    for (const t of design.tanks) {
-      const g = createPartMesh(t);
-      g.position.y = y;
-      this.rocket.add(g);
-      this.rocketParts.push(g);
-      y += g.userData.height;
+      if (id === 'decoupler') stageIdx = 1;
     }
     const topY = y;
     if (design.nose) {
@@ -1004,6 +1013,7 @@ export class Renderer {
       g.position.y = finY;
       this.rocket.add(g);
       this.rocketParts.push(g);
+      this.stageParts[0].push(g); // fins ride down with stage one
     }
     if (design.boosters) {
       const g = createPartMesh('booster-pair');
@@ -1011,6 +1021,9 @@ export class Renderer {
       this.rocket.add(g);
       this.rocketParts.push(g);
       this.boosterGroup = g;
+      g.traverse((o) => {
+        if (o.isMesh && o.userData.isNozzle) this.glowMats.push({ mat: o.material, stage: 'b' });
+      });
       // booster nozzle emitter positions
       this.boosterEmitters = [
         new THREE.Vector3(0.48, finY, 0),
@@ -1025,22 +1038,17 @@ export class Renderer {
       this.chuteAnchorY = topY;
     }
 
-    // collect nozzle materials so the bells can glow while firing
-    this.glowMats = [];
-    this.rocket.traverse((o) => {
-      if (o.isMesh && o.userData.isNozzle) this.glowMats.push(o.material);
-    });
-
-    // one flame core per nozzle
+    // one flame core per nozzle, tagged with its stage
     this.flameCols = [];
-    if (design.engine) {
-      const cluster = this.emitters.length > 1;
-      for (const e of this.emitters) {
+    for (let si = 0; si < 2; si++) {
+      const cluster = this.stageEmitters[si].length > 1;
+      for (const e of this.stageEmitters[si]) {
         const col = cluster
           ? this.makeFlameColumn(0.07, 0.2, 3)
           : this.makeFlameColumn(0.11, 0.34, 4.4);
         col.position.copy(e);
         col.userData.kind = 'main';
+        col.userData.stage = si;
         this.rocket.add(col);
         this.flameCols.push(col);
       }
@@ -1075,7 +1083,8 @@ export class Renderer {
       col.material.dispose();
     }
     this.flameCols = [];
-    this.emitters = [];
+    this.stageParts = [[], []];
+    this.stageEmitters = [[], []];
     this.boosterGroup = null;
     this.boosterEmitters = null;
     for (const b of this.detachedBoosters) {
@@ -1091,6 +1100,25 @@ export class Renderer {
   }
 
   // ---- flight events ----
+
+  // the whole spent first stage detaches and tumbles away behind
+  separateStage(worldVelY) {
+    for (const g of this.stageParts?.[0] || []) {
+      const idx = this.rocketParts.indexOf(g);
+      if (idx >= 0) this.rocketParts.splice(idx, 1);
+      this.scene.attach(g);
+      this.detachedBoosters.push({
+        mesh: g,
+        vel: new THREE.Vector3((Math.random() - 0.5) * 2, worldVelY * 0.85, (Math.random() - 0.5) * 2),
+        spin: (Math.random() - 0.5) * 2.5,
+        age: 0,
+      });
+    }
+    this.stageParts[0] = [];
+    for (const col of this.flameCols || []) {
+      if (col.userData.stage === 0) col.visible = false;
+    }
+  }
 
   separateBoosters() {
     if (!this.boosterGroup) return;
@@ -1265,24 +1293,32 @@ export class Renderer {
     // engine exhaust while burning, flavored per engine tier. a landed
     // rocket can still have fuel in the tank, so gate on done too
     const frac = flight.done ? 0 : flight.thrustFrac();
-    // the bells heat up and glow while there is thrust
-    for (const m of this.glowMats || []) m.emissiveIntensity = frac * 1.5;
+    // the bells heat up and glow while their own stage is firing
+    for (const gm of this.glowMats || []) {
+      const stageNow = flight.stage ?? 0;
+      const on = gm.stage === 'b'
+        ? (!flight.done && !flight.held && flight.boostersAttached && flight.boosterFuel > 0 ? 1 : 0)
+        : (gm.stage === stageNow && !flight.done && !flight.held && flight.fuel > 0 && !flight.engineCut && (flight.stageTimer ?? 0) <= 0 ? 1 : 0);
+      gm.mat.emissiveIntensity = on * 1.5;
+    }
 
     // flame cores flicker under each burning nozzle
     this.flameTime = (this.flameTime || 0) + dt;
-    const mainOn = !flight.done && !flight.held && flight.fuel > 0 && !flight.engineCut && !flight.tumbling ? 1 : 0;
+    const stage = flight.stage ?? 0;
+    const mainOn = !flight.done && !flight.held && flight.fuel > 0 && !flight.engineCut &&
+      !flight.tumbling && (flight.stageTimer ?? 0) <= 0 ? 1 : 0;
     const boostOn = !flight.done && !flight.held && flight.boostersAttached && flight.boosterFuel > 0 && !flight.tumbling ? 1 : 0;
     for (const col of this.flameCols || []) {
-      const on = col.userData.kind === 'booster' ? boostOn : mainOn;
+      const on = col.userData.kind === 'booster' ? boostOn : (col.userData.stage === stage ? mainOn : 0);
       col.visible = on > 0;
       col.material.uniforms.uT.value = this.flameTime;
       col.material.uniforms.uI.value = on * (0.8 + Math.random() * 0.25);
       col.scale.y = on ? 0.85 + Math.random() * 0.3 : 1;
     }
 
-    const st = this.flameStyle || FLAME_STYLES['engine-basic'];
-    if (frac > 0 && flight.fuel > 0) {
-      for (const e of this.emitters) {
+    const st = FLAME_STYLES[this.stageFlameStyles?.[stage]] || FLAME_STYLES['engine-basic'];
+    if (mainOn) {
+      for (const e of this.stageEmitters?.[stage] || []) {
         const world = e.clone();
         this.rocket.localToWorld(world);
         for (let i = 0; i < st.perFrame; i++) {

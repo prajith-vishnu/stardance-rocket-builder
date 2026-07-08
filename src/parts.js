@@ -45,6 +45,11 @@ export const PARTS = {
     mass: 40, thrust: 3000, burn: 55, cost: 1200,
     desc: 'thrust 3000 / burn 55 per s',
   },
+  'decoupler': {
+    name: 'Decoupler', category: 'Staging',
+    mass: 8, cost: 400,
+    desc: 'mass 8 / splits the stack in two',
+  },
   'fins-basic': {
     name: 'Flat Fins', category: 'Fins',
     mass: 6, stability: 3, cost: 0,
@@ -67,7 +72,7 @@ export const PARTS = {
   },
 };
 
-export const CATEGORY_ORDER = ['Nose Cone', 'Fuel Tank', 'Engine', 'Fins', 'Boosters', 'Recovery'];
+export const CATEGORY_ORDER = ['Nose Cone', 'Fuel Tank', 'Engine', 'Staging', 'Fins', 'Boosters', 'Recovery'];
 
 // ---- materials ----
 
@@ -435,6 +440,24 @@ function buildBoosterPair() {
   return g;
 }
 
+function buildDecoupler() {
+  // short interstage band with pyro bolts around it
+  const g = new THREE.Group();
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.012, R + 0.012, 0.22, 40), darkMetal());
+  band.position.y = 0.11;
+  const stripe = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.017, R + 0.017, 0.05, 40), paintedMaterial(0xc04a2a));
+  stripe.position.y = 0.11;
+  g.add(band, stripe);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    const bolt = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.08, 0.045), copperPipe());
+    bolt.position.set(Math.cos(a) * (R + 0.02), 0.11, Math.sin(a) * (R + 0.02));
+    g.add(bolt);
+  }
+  g.userData.height = 0.22;
+  return g;
+}
+
 function buildParachuteBox() {
   // packed chute: a small band near the nose. The canopy itself is
   // created by the renderer at deploy time.
@@ -455,6 +478,7 @@ export function createPartMesh(id) {
   else if (id === 'tank-large') g = buildTank(3.7);
   else if (id.startsWith('engine')) g = buildEngine(id);
   else if (id.startsWith('fins')) g = buildFins(id);
+  else if (id === 'decoupler') g = buildDecoupler();
   else if (id === 'booster-pair') g = buildBoosterPair();
   else if (id === 'parachute') g = buildParachuteBox();
   else g = new THREE.Group();
