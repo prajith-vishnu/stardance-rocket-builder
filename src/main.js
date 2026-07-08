@@ -13,9 +13,12 @@ let flight = null;
 let unlocksReturnTo = 'title';
 let wind = rollWind();
 // per-flight altitude callouts
-const MILESTONES = [100, 250, 500, 1000, 1500, 2000];
+const MILESTONES = [100, 250, 500, 1000, 1500, 2000, 3000, 5000];
 let hitMilestones = new Set();
 let beatBest = false;
+// t-minus clock, > 0 while a countdown is running
+let countdown = 0;
+let countdownTick = 0;
 
 // current rocket design, seeded with the free starter parts so the
 // first visit to the pad is not an empty scene
@@ -120,15 +123,15 @@ function goLaunch() {
   document.activeElement?.blur?.();
   state = 'launch';
   flight = new Flight(design, wind);
+  flight.held = true; // countdown owns the clock until t-zero
+  countdown = 5.999;
+  countdownTick = 6;
   hitMilestones = new Set();
   beatBest = false;
   renderer.buildRocket(design);
   renderer.setMode('launch');
   ui.showScreen('launch-ui');
   ui.setBestReadout(save.bestAlt);
-  audio.ignition();
-  audio.startEngine();
-  ui.flashEvent('Liftoff');
 }
 
 function goResults() {
@@ -243,6 +246,25 @@ function frame(now) {
   last = now;
 
   if (state === 'launch' && flight) {
+    // run the t-minus sequence before releasing the rocket
+    if (flight.held) {
+      countdown -= dt;
+      const tick = Math.ceil(countdown);
+      if (tick < countdownTick && tick > 0) {
+        countdownTick = tick;
+        ui.flashEvent('T-' + tick);
+        audio.ping();
+        if (tick === 3) renderer.armsRetracting = true;
+        if (tick === 2) renderer.preSteam = true;
+      }
+      if (countdown <= 0) {
+        flight.held = false;
+        renderer.preSteam = false;
+        audio.ignition();
+        audio.startEngine();
+        ui.flashEvent('Liftoff');
+      }
+    }
     if (!flight.done) {
       // parachute drift is slow to watch, so time runs double until
       // the rocket is close to the ground

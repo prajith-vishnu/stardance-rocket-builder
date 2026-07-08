@@ -114,6 +114,7 @@ export class Flight {
 
     this.chuteDeployed = false;
     this.engineCut = false;
+    this.held = false; // true while the countdown is running
     this.maxAlt = 0;
     this.time = 0;
     this.done = false;
@@ -129,7 +130,7 @@ export class Flight {
   // player can shut the main engine down early with the spacebar,
   // which saves fuel for the efficiency mission
   cutEngine() {
-    if (this.done || this.engineCut || this.fuel <= 0 || !this.design.engine) return false;
+    if (this.done || this.held || this.engineCut || this.fuel <= 0 || !this.design.engine) return false;
     this.engineCut = true;
     this.graphMarks.push({ t: this.time, alt: this.alt, type: 'cutoff' });
     return true;
@@ -137,6 +138,7 @@ export class Flight {
 
   // 0..1, used for engine audio and particle intensity
   thrustFrac() {
+    if (this.held) return 0;
     const max = this.stats.thrust || 1;
     return this.tumbling ? 0 : this.currentThrust() / max;
   }
@@ -156,7 +158,7 @@ export class Flight {
   }
 
   step(dt) {
-    if (this.done) return;
+    if (this.done || this.held) return;
     this.time += dt;
     this.events.length = 0;
 

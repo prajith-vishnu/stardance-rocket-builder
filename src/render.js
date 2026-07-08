@@ -1173,6 +1173,8 @@ export class Renderer {
       }
       this.camTarget.set(0, focusY, 0);
       // dock the swing arms again for the next launch
+      this.armsRetracting = false;
+      this.preSteam = false;
       for (const arm of this.swingArms || []) arm.rotation.y = arm.userData.docked;
     }
     if (mode === 'build') {
@@ -1268,8 +1270,8 @@ export class Renderer {
 
     // flame cores flicker under each burning nozzle
     this.flameTime = (this.flameTime || 0) + dt;
-    const mainOn = !flight.done && flight.fuel > 0 && !flight.engineCut && !flight.tumbling ? 1 : 0;
-    const boostOn = !flight.done && flight.boostersAttached && flight.boosterFuel > 0 && !flight.tumbling ? 1 : 0;
+    const mainOn = !flight.done && !flight.held && flight.fuel > 0 && !flight.engineCut && !flight.tumbling ? 1 : 0;
+    const boostOn = !flight.done && !flight.held && flight.boostersAttached && flight.boosterFuel > 0 && !flight.tumbling ? 1 : 0;
     for (const col of this.flameCols || []) {
       const on = col.userData.kind === 'booster' ? boostOn : mainOn;
       col.visible = on > 0;
@@ -1292,14 +1294,16 @@ export class Renderer {
         }
       }
     }
-    // swing arms pull back once the engine lights
-    for (const arm of this.swingArms || []) {
-      arm.rotation.y += (arm.userData.retracted - arm.rotation.y) * Math.min(1, 1.6 * dt);
+    // swing arms pull back when the countdown commands it
+    if (this.armsRetracting) {
+      for (const arm of this.swingArms || []) {
+        arm.rotation.y += (arm.userData.retracted - arm.rotation.y) * Math.min(1, 1.6 * dt);
+      }
     }
 
     // the plume hits the deflector and pours out both ends of the
-    // trench as steam during the first moments of flight
-    if (frac > 0 && flight.alt < 25) {
+    // trench as steam. the deluge also runs just before ignition
+    if ((frac > 0 || this.preSteam) && flight.alt < 25) {
       for (let i = 0; i < 5; i++) {
         const dir = Math.random() < 0.5 ? -1 : 1;
         this.spawnParticle(
