@@ -196,6 +196,25 @@ export const audio = {
     src.stop(t + 0.2);
   },
 
+  // quick whoomp for a mid-air engine relight
+  relight() {
+    const c = ensureCtx();
+    const t = c.currentTime;
+    const src = c.createBufferSource();
+    src.buffer = noiseBuffer(0.5);
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(300, t);
+    f.frequency.exponentialRampToValueAtTime(2200, t + 0.18);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(0.45, t + 0.1);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+    src.connect(f).connect(g).connect(master);
+    src.start(t);
+    src.stop(t + 0.5);
+  },
+
   // sharp band-passed pop for booster separation
   separation() {
     const c = ensureCtx();

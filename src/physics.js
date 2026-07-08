@@ -111,6 +111,7 @@ export class Flight {
     this.tiltDir = Math.random() * Math.PI * 2;
     this.tumbling = false;
     this.everTumbled = false;
+    this.everRelit = false;
 
     this.chuteDeployed = false;
     this.engineCut = false;
@@ -127,13 +128,19 @@ export class Flight {
     this.graphMarks = [];
   }
 
-  // player can shut the main engine down early with the spacebar,
-  // which saves fuel for the efficiency mission
-  cutEngine() {
-    if (this.done || this.held || this.engineCut || this.fuel <= 0 || !this.design.engine) return false;
-    this.engineCut = true;
-    this.graphMarks.push({ t: this.time, alt: this.alt, type: 'cutoff' });
-    return true;
+  // spacebar toggles the main engine: cut it early to save fuel, or
+  // relight it on the way down and try to land on the plume
+  toggleEngine() {
+    if (this.done || this.held || this.fuel <= 0 || !this.design.engine) return false;
+    if (!this.engineCut) {
+      this.engineCut = true;
+      this.graphMarks.push({ t: this.time, alt: this.alt, type: 'cutoff' });
+      return 'cut';
+    }
+    this.engineCut = false;
+    this.everRelit = true;
+    this.graphMarks.push({ t: this.time, alt: this.alt, type: 'relight' });
+    return 'relight';
   }
 
   // 0..1, used for engine audio and particle intensity
@@ -260,6 +267,7 @@ export class Flight {
     const maxAlt = Math.round(this.maxAlt);
     return {
       maxAlt, fuelUsed, landingSpeed: Math.round(landingSpeed), safe,
+      chuteUsed: this.chuteDeployed, relit: this.everRelit,
       track: this.track, marks: this.graphMarks,
     };
   }
@@ -278,6 +286,8 @@ export function scoreFlight(mission, result) {
     score = Math.round((result.maxAlt / result.fuelUsed) * 40);
   }
   if (result.safe && actuallyFlew) score += 50; // small bonus on any mission
+  // landing on the engine with no chute is the hardest trick in the game
+  if (result.safe && actuallyFlew && result.relit && !result.chuteUsed) score += 250;
   return Math.max(0, score);
 }
 
@@ -322,6 +332,11 @@ export const ACHIEVEMENTS = [
     id: 'tumbler', name: 'Regained Composure',
     desc: 'lose control mid-flight and still land safely',
     test: (r, f) => f.everTumbled && r.safe,
+  },
+  {
+    id: 'hoverslam', name: 'Hoverslam',
+    desc: 'relight the engine and land with no parachute',
+    test: (r) => r.safe && r.relit && !r.chuteUsed && r.maxAlt >= 50,
   },
 ];
 

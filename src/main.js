@@ -212,14 +212,18 @@ document.getElementById('btn-clear').addEventListener('click', () => { audio.cli
 document.getElementById('btn-title').addEventListener('click', () => { audio.click(); goTitle(); });
 document.getElementById('btn-again').addEventListener('click', () => { audio.click(); goBuild(); });
 
-// spacebar shuts the main engine down mid-flight
+// spacebar toggles the main engine mid-flight: cut it or relight it
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Space') return;
   if (state !== 'launch' || !flight || flight.done) return;
   e.preventDefault();
-  if (flight.cutEngine()) {
+  const action = flight.toggleEngine();
+  if (action === 'cut') {
     audio.cutoff();
     ui.flashEvent('Engine cutoff');
+  } else if (action === 'relight') {
+    audio.relight();
+    ui.flashEvent('Engine relight');
   }
 });
 

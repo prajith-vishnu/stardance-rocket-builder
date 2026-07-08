@@ -201,7 +201,7 @@ function drawFlightGraph(result) {
   g.stroke();
 
   // event dots
-  const colors = { burnout: '#1a1b1d', cutoff: '#1a1b1d', sep: '#6f6a5a', chute: '#2e7d4a' };
+  const colors = { burnout: '#1a1b1d', cutoff: '#1a1b1d', relight: '#d8451f', sep: '#6f6a5a', chute: '#2e7d4a' };
   for (const m of result.marks || []) {
     g.fillStyle = colors[m.type] || '#1a1b1d';
     g.beginPath();
@@ -233,7 +233,7 @@ export function renderResults(mission, result, score, earned, save, isBest, newA
   $('res-alt').textContent = result.maxAlt + ' m';
   $('res-fuel').textContent = result.fuelUsed + ' units';
   $('res-landing').textContent = result.safe
-    ? 'Soft (' + result.landingSpeed + ' m/s)'
+    ? 'Soft (' + result.landingSpeed + ' m/s' + (result.relit && !result.chuteUsed ? ', propulsive' : '') + ')'
     : 'Crashed (' + result.landingSpeed + ' m/s)';
   $('res-mission').textContent = MISSIONS[mission].name;
   $('res-score').textContent = String(score);
