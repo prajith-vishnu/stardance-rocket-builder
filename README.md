@@ -12,8 +12,12 @@ Play it here: [stardance-rocket-builder.vercel.app](https://stardance-rocket-bui
 - 3D build mode with orbit camera, realistic metal materials, and shadows
 - A desert launch site to fly out of: rolling terrain, dirt roads, a
   hangar and tank farm, mountains on the horizon, and a moon overhead
-- Twelve rocket parts: nose cones, fuel tanks, three engine tiers, fins,
-  strap-on boosters, and a parachute
+- Thirteen rocket parts: nose cones, fuel tanks, three engine tiers,
+  fins, strap-on boosters, a parachute, and a decoupler
+- Two-stage rockets: the spent first stage falls away mid-flight and
+  the second stage lights up in the air
+- A five second countdown with swing arms pulling back and the water
+  deluge starting before ignition
 - Arcade flight physics: thrust, fuel burn, drag, and stability. Rockets
   without enough fins visibly wobble and tumble
 - Particle-based engine exhaust and animated booster separation
@@ -36,10 +40,14 @@ Play it here: [stardance-rocket-builder.vercel.app](https://stardance-rocket-bui
    engine and one fuel tank. Fins keep it pointed the right way.
 2. Watch the stats panel: thrust-to-weight has to be above 1 to lift
    off, and low stability means a bumpy ride.
-3. Pick a mission, hit Launch, and watch it go. Press space mid-flight
-   to cut the engine early - unburned fuel counts for the efficiency
-   score, but you keep carrying its weight.
-4. Spend the points you earn in the Parts Catalog to unlock bigger
+3. Pick a mission, hit Launch, and ride out the countdown. Press space
+   mid-flight to cut the engine early - unburned fuel counts for the
+   efficiency score, but you keep carrying its weight.
+4. Press space again on the way down to relight the engine and try to
+   land on the plume. No parachute, big bonus.
+5. Unlock the decoupler to build two-stage rockets: stack a second
+   engine and tank above it and the rocket stages itself mid-flight.
+6. Spend the points you earn in the Parts Catalog to unlock bigger
    tanks, stronger engines, boosters, and the parachute.
 
 Drag to orbit the camera in build mode, scroll to zoom.
