@@ -115,7 +115,7 @@ export function validateDesign(design) {
     if (seg.length && !seg[0].startsWith('engine')) return 'Engines go at the bottom of a stage.';
   }
   const s = computeStats(design);
-  if (s.twr <= 1.0) return 'Thrust-to-weight is below 1. It will not lift off.';
+  if (s.twr <= 1.0) return 'Too heavy to lift off. Remove a tank or fit a stronger engine.';
   return null;
 }
 

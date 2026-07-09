@@ -137,8 +137,8 @@ function goLaunch() {
   state = 'launch';
   flight = new Flight(design, wind);
   flight.held = true; // countdown owns the clock until t-zero
-  countdown = 5.999;
-  countdownTick = 6;
+  countdown = 3.999;
+  countdownTick = 4;
   hitMilestones = new Set();
   beatBest = false;
   renderer.buildRocket(design);
@@ -232,11 +232,15 @@ document.getElementById('btn-clear').addEventListener('click', () => { audio.cli
 document.getElementById('btn-title').addEventListener('click', () => { audio.click(); goTitle(); });
 document.getElementById('btn-again').addEventListener('click', () => { audio.click(); goBuild(); });
 
-// spacebar toggles the main engine mid-flight: cut it or relight it
+// spacebar: skip the countdown, or toggle the engine mid-flight
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Space') return;
   if (state !== 'launch' || !flight || flight.done) return;
   e.preventDefault();
+  if (flight.held) {
+    countdown = Math.min(countdown, 0.01); // impatient, straight to ignition
+    return;
+  }
   const action = flight.toggleEngine();
   if (action === 'cut') {
     audio.cutoff();
@@ -279,7 +283,7 @@ function frame(now) {
         ui.flashEvent('T-' + tick);
         audio.ping();
         if (tick === 3) renderer.armsRetracting = true;
-        if (tick === 2) renderer.preSteam = true;
+        if (tick === 1) renderer.preSteam = true;
       }
       if (countdown <= 0) {
         flight.held = false;

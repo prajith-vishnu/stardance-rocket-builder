@@ -32,13 +32,13 @@ export const PARTS = {
   },
   'engine-basic': {
     name: 'Sparrow Engine', category: 'Engine',
-    mass: 15, thrust: 900, burn: 20, cost: 0,
-    desc: 'thrust 900 / burn 20 per s',
+    mass: 15, thrust: 1500, burn: 20, cost: 0,
+    desc: 'thrust 1500 / burn 20 per s',
   },
   'engine-vector': {
     name: 'Kestrel Engine', category: 'Engine',
-    mass: 22, thrust: 1600, burn: 30, cost: 500,
-    desc: 'thrust 1600 / burn 30 per s',
+    mass: 22, thrust: 2200, burn: 30, cost: 500,
+    desc: 'thrust 2200 / burn 30 per s',
   },
   'engine-heavy': {
     name: 'Condor Engine', category: 'Engine',
@@ -52,13 +52,13 @@ export const PARTS = {
   },
   'fins-basic': {
     name: 'Flat Fins', category: 'Fins',
-    mass: 6, stability: 3, cost: 0,
-    desc: 'mass 6 / stability +3',
+    mass: 6, stability: 4, cost: 0,
+    desc: 'mass 6 / stability +4',
   },
   'fins-swept': {
     name: 'Swept Fins', category: 'Fins',
-    mass: 5, stability: 5, cost: 300,
-    desc: 'mass 5 / stability +5',
+    mass: 5, stability: 6, cost: 300,
+    desc: 'mass 5 / stability +6',
   },
   'booster-pair': {
     name: 'Strap-on Boosters', category: 'Boosters',

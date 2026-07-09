@@ -296,11 +296,12 @@ td:last-child.stat-bad { color: var(--red); }
 
 #build-warning {
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   color: var(--red);
   min-height: 1.2em;
   margin: 10px 0 2px;
 }
+#build-warning.advice { color: #8a6a1d; }
 
 /* mission picker */
 .mission-btn {

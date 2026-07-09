@@ -112,7 +112,7 @@ export function renderStats(design, wind) {
 
   const twrEl = $('stat-twr');
   twrEl.textContent = s.twr.toFixed(2);
-  twrEl.className = s.twr > 1 ? 'stat-good' : 'stat-bad';
+  twrEl.className = s.twr >= 1.3 ? 'stat-good' : s.twr > 1 ? '' : 'stat-bad';
 
   $('stat-burn').textContent = s.burnTime > 0 ? s.burnTime.toFixed(1) + ' s' : '-';
   $('stat-stages').textContent = String(s.stageCount);
@@ -123,7 +123,18 @@ export function renderStats(design, wind) {
   else { stEl.textContent = 'Unstable'; stEl.className = 'stat-bad'; }
 
   const warning = validateDesign(design);
-  $('build-warning').textContent = warning ?? '';
+  const warnEl = $('build-warning');
+  if (warning) {
+    warnEl.textContent = warning;
+    warnEl.classList.remove('advice');
+  } else if (s.twr < 1.3) {
+    // legal but sluggish: warn without blocking the launch
+    warnEl.textContent = 'Heavy for this engine - it will climb slowly.';
+    warnEl.classList.add('advice');
+  } else {
+    warnEl.textContent = '';
+    warnEl.classList.remove('advice');
+  }
   $('btn-launch').disabled = !!warning;
 }
 

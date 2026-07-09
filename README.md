@@ -16,8 +16,8 @@ Play it here: [stardance-rocket-builder.vercel.app](https://stardance-rocket-bui
   fins, strap-on boosters, a parachute, and a decoupler
 - Two-stage rockets: the spent first stage falls away mid-flight and
   the second stage lights up in the air
-- A five second countdown with swing arms pulling back and the water
-  deluge starting before ignition
+- A launch countdown with swing arms pulling back and the water deluge
+  starting before ignition (space skips it if you are impatient)
 - Arcade flight physics: thrust, fuel burn, drag, and stability. Rockets
   without enough fins visibly wobble and tumble
 - Particle-based engine exhaust and animated booster separation
